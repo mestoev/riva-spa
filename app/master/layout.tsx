@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cookies, headers } from "next/headers";
 import { MASTER_COOKIE, getMasterFromCookie } from "@/lib/master-auth";
 import { masterLogoutAction } from "./login/actions";
+import { MasterMobileNav } from "./master-mobile-nav";
 
 export const metadata: Metadata = {
   title: "RIVA · кабинет мастера",
@@ -32,8 +33,19 @@ export default async function MasterLayout({ children }: { children: React.React
     return <>{children}</>;
   }
 
+  const logoutButton = (
+    <form action={masterLogoutAction}>
+      <button
+        type="submit"
+        className="w-full text-left px-4 py-3 rounded-md text-[14px] text-bg-0/70 hover:bg-bg-0/10"
+      >
+        Выйти
+      </button>
+    </form>
+  );
+
   return (
-    <div className="min-h-screen grid lg:grid-cols-[260px_1fr] bg-bg-1">
+    <div className="min-h-screen lg:grid lg:grid-cols-[260px_1fr] bg-bg-1">
       <aside className="hidden lg:flex flex-col bg-ink text-bg-0 p-6 sticky top-0 h-screen">
         <div className="serif text-[22px] font-light tracking-wider mb-1">RIVA</div>
         <div className="font-mono text-[10px] tracking-[0.2em] text-bg-0/50 uppercase mb-6">
@@ -55,39 +67,16 @@ export default async function MasterLayout({ children }: { children: React.React
             </Link>
           ))}
         </nav>
-        <form action={masterLogoutAction}>
-          <button
-            type="submit"
-            className="w-full text-left px-4 py-2.5 rounded-md text-sm text-bg-0/60 hover:bg-bg-0/10"
-          >
-            Выйти
-          </button>
-        </form>
+        {logoutButton}
       </aside>
 
-      <header className="lg:hidden bg-ink text-bg-0 px-5 py-4 sticky top-0 z-20">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="serif text-[18px] font-light tracking-wider">RIVA · {master.name}</div>
-          </div>
-          <form action={masterLogoutAction}>
-            <button type="submit" className="text-[12px] text-bg-0/60">Выйти</button>
-          </form>
-        </div>
-        <div className="flex gap-1 overflow-x-auto -mx-5 px-5 mt-3 pb-1">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="shrink-0 px-3.5 py-2 rounded-full text-[12px] bg-bg-0/10 text-bg-0/80 hover:text-bg-0"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </header>
+      <MasterMobileNav
+        masterName={master.name}
+        masterRole={master.role}
+        logout={logoutButton}
+      />
 
-      <main className="p-5 sm:p-8 max-w-[1200px] w-full">{children}</main>
+      <main className="p-4 sm:p-6 lg:p-8 max-w-[1200px] w-full">{children}</main>
     </div>
   );
 }

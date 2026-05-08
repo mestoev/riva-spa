@@ -54,11 +54,11 @@ export default async function MasterDashboard() {
   return (
     <div>
       <div className="eyebrow">Кабинет</div>
-      <h1 className="serif text-[36px] sm:text-[44px] font-light leading-tight mt-2 mb-8">
+      <h1 className="serif text-[26px] sm:text-[44px] font-light leading-tight mt-2 mb-6 sm:mb-8">
         Сегодня · {master.name.split(" ")[0]}
       </h1>
 
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 mb-6 sm:mb-8">
         <Kpi label="Записей сегодня" value={today.length} />
         <Kpi
           label="К посещению"
@@ -72,42 +72,74 @@ export default async function MasterDashboard() {
         />
       </div>
 
-      <section className="bg-bg-0 border border-line rounded-xl p-5 sm:p-7">
-        <h2 className="serif text-[22px] m-0 mb-4">Записи на сегодня</h2>
+      <section className="bg-bg-0 border border-line rounded-xl p-4 sm:p-7">
+        <h2 className="serif text-[20px] sm:text-[22px] m-0 mb-4">Записи на сегодня</h2>
         {today.length === 0 ? (
           <p className="text-ink-mute text-sm m-0">На сегодня записей нет.</p>
         ) : (
-          <div className="overflow-x-auto -mx-5 sm:mx-0">
-            <table className="w-full text-sm">
-              <thead className="text-left text-ink-mute font-mono text-[11px] uppercase tracking-wider">
-                <tr>
-                  <th className="px-3 py-2 sm:px-1">Время</th>
-                  <th className="px-3 py-2 sm:px-1">Услуга</th>
-                  <th className="px-3 py-2 sm:px-1">Клиент</th>
-                  <th className="px-3 py-2 sm:px-1 text-right">Стоимость</th>
-                  <th className="px-3 py-2 sm:px-1">Статус</th>
-                </tr>
-              </thead>
-              <tbody>
-                {today.map((b) => (
-                  <tr key={b.id} className="border-t border-line-soft">
-                    <td className="px-3 py-2 sm:px-1 font-mono">{b.slot.time}</td>
-                    <td className="px-3 py-2 sm:px-1">{b.service.name}</td>
-                    <td className="px-3 py-2 sm:px-1">
-                      {b.customer.name}
-                      <span className="text-ink-mute ml-1">{b.customer.phone}</span>
-                    </td>
-                    <td className="px-3 py-2 sm:px-1 text-right font-mono">
+          <>
+            {/* Mobile cards */}
+            <div className="md:hidden flex flex-col gap-2.5">
+              {today.map((b) => (
+                <div key={b.id} className="bg-bg-1 rounded-md p-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div className="font-mono text-[14px] font-medium">
+                      {b.slot.time}
+                    </div>
+                    <StatusBadge status={b.status} />
+                  </div>
+                  <div className="mt-1 text-[14px]">{b.service.name}</div>
+                  <div className="mt-2 pt-2 border-t border-line-soft flex items-baseline justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[13px]">{b.customer.name}</div>
+                      <a
+                        href={`tel:${b.customer.phone}`}
+                        className="text-[12px] text-ink-soft border-b border-ink-soft inline-block"
+                      >
+                        {b.customer.phone}
+                      </a>
+                    </div>
+                    <div className="serif text-[16px] shrink-0">
                       {fmtPrice(b.priceSnapshot)}
-                    </td>
-                    <td className="px-3 py-2 sm:px-1">
-                      <StatusBadge status={b.status} />
-                    </td>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-ink-mute font-mono text-[11px] uppercase tracking-wider">
+                  <tr>
+                    <th className="px-1 py-2">Время</th>
+                    <th className="px-1 py-2">Услуга</th>
+                    <th className="px-1 py-2">Клиент</th>
+                    <th className="px-1 py-2 text-right">Стоимость</th>
+                    <th className="px-1 py-2">Статус</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {today.map((b) => (
+                    <tr key={b.id} className="border-t border-line-soft">
+                      <td className="px-1 py-2 font-mono">{b.slot.time}</td>
+                      <td className="px-1 py-2">{b.service.name}</td>
+                      <td className="px-1 py-2">
+                        {b.customer.name}
+                        <span className="text-ink-mute ml-1">{b.customer.phone}</span>
+                      </td>
+                      <td className="px-1 py-2 text-right font-mono">
+                        {fmtPrice(b.priceSnapshot)}
+                      </td>
+                      <td className="px-1 py-2">
+                        <StatusBadge status={b.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
     </div>
@@ -116,10 +148,16 @@ export default async function MasterDashboard() {
 
 function Kpi({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return (
-    <div className="bg-bg-0 border border-line rounded-lg p-5">
-      <div className="eyebrow">{label}</div>
-      <div className="serif text-[28px] sm:text-[32px] font-light leading-none mt-2">{value}</div>
-      {hint ? <div className="text-[12px] text-ink-mute mt-1.5">{hint}</div> : null}
+    <div className="bg-bg-0 border border-line rounded-lg p-3.5 sm:p-5">
+      <div className="font-mono text-[10px] sm:text-[11px] tracking-wider uppercase text-ink-mute leading-tight">
+        {label}
+      </div>
+      <div className="serif text-[22px] sm:text-[32px] font-light leading-none mt-1.5 sm:mt-2 break-words">
+        {value}
+      </div>
+      {hint ? (
+        <div className="text-[11px] sm:text-[12px] text-ink-mute mt-1.5 leading-tight">{hint}</div>
+      ) : null}
     </div>
   );
 }

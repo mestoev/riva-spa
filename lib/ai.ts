@@ -10,10 +10,22 @@
  */
 import { prisma } from "./db";
 import { CONTACT } from "./data";
+import { TOOLS, executeTool } from "./ai-tools";
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-export type AIMessage = { role: "user" | "assistant" | "system"; content: string };
+export type AIMessage = {
+  role: "user" | "assistant" | "system" | "tool";
+  content: string;
+  tool_call_id?: string;
+  tool_calls?: AIToolCall[];
+};
+
+export type AIToolCall = {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+};
 
 export type AIResult = {
   text: string;
@@ -113,11 +125,25 @@ export async function askAI(
     return null;
   }
 
-  const systemPrompt = await buildSystemPrompt(settings);
+  const baseSystemPrompt = await buildSystemPrompt(settings);
+  // Add tool-use guidance on top of admin's prompt
+  const systemPrompt = [
+    baseSystemPrompt,
+    ``,
+    `## Инструменты`,
+    `У тебя есть инструменты, чтобы реально записать клиента, не отправляя его никуда:`,
+    `- list_services — посмотреть услуги/цены`,
+    `- list_masters — посмотреть мастеров`,
+    `- find_free_slots — узнать свободные слоты у мастера на дату`,
+    `- create_booking — создать запись (вызывай ТОЛЬКО когда клиент подтвердил услугу, мастера, дату+время, и дал имя+телефон)`,
+    ``,
+    `Веди диалог естественно. Если клиент хочет записаться — собери у него услугу, дату/время, имя и телефон, проверь свободность через find_free_slots, и только потом вызывай create_booking. Если клиент уже знает что хочет — не задавай лишних вопросов.`,
+    `Сегодняшняя дата: ${new Date().toISOString().slice(0, 10)}.`,
+  ].join("\n");
 
   const messages: AIMessage[] = [
     { role: "system", content: systemPrompt },
-    ...history.slice(-10), // keep last 10 turns
+    ...history.slice(-10),
     { role: "user", content: userMessage },
   ];
 
@@ -126,32 +152,76 @@ export async function askAI(
   let promptTokens: number | undefined;
   let completionTokens: number | undefined;
 
+  // Tool-call loop — run up to 5 iterations.
+  const MAX_ITERATIONS = 5;
   try {
-    const res = await fetch(GROQ_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: settings.model,
-        messages,
-        temperature: settings.temperature,
-        max_tokens: settings.maxTokens,
-      }),
-    });
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error(`[ai] Groq ${res.status}: ${errBody.slice(0, 500)}`);
-      return null;
+    for (let iter = 0; iter < MAX_ITERATIONS; iter += 1) {
+      const res = await fetch(GROQ_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: settings.model,
+          messages,
+          temperature: settings.temperature,
+          max_tokens: settings.maxTokens,
+          tools: TOOLS,
+          tool_choice: "auto",
+        }),
+      });
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error(`[ai] Groq ${res.status}: ${errBody.slice(0, 500)}`);
+        return null;
+      }
+      const json = (await res.json()) as {
+        choices: {
+          message: {
+            role: "assistant";
+            content: string | null;
+            tool_calls?: AIToolCall[];
+          };
+          finish_reason?: string;
+        }[];
+        usage?: { prompt_tokens?: number; completion_tokens?: number };
+      };
+      const choice = json.choices[0];
+      if (!choice) return null;
+      const msg = choice.message;
+      promptTokens = json.usage?.prompt_tokens;
+      completionTokens = json.usage?.completion_tokens;
+
+      if (msg.tool_calls && msg.tool_calls.length > 0) {
+        // Append assistant turn (with tool_calls) to history
+        messages.push({
+          role: "assistant",
+          content: msg.content ?? "",
+          tool_calls: msg.tool_calls,
+        });
+        // Execute each tool call sequentially and append results
+        for (const call of msg.tool_calls) {
+          let argsObj: Record<string, unknown> = {};
+          try {
+            argsObj = JSON.parse(call.function.arguments || "{}");
+          } catch {
+            /* keep empty */
+          }
+          const out = await executeTool(call.function.name, argsObj, telegramId);
+          messages.push({
+            role: "tool",
+            tool_call_id: call.id,
+            content: out,
+          });
+        }
+        // Loop again with tool results so the model can produce final reply
+        continue;
+      }
+
+      responseText = (msg.content ?? "").trim();
+      break;
     }
-    const json = (await res.json()) as {
-      choices: { message: { content: string } }[];
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
-    };
-    responseText = json.choices[0]?.message?.content?.trim() ?? "";
-    promptTokens = json.usage?.prompt_tokens;
-    completionTokens = json.usage?.completion_tokens;
   } catch (err) {
     console.error("[ai] request failed:", err);
     return null;

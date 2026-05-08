@@ -28,10 +28,10 @@ export default async function MasterSchedulePage() {
   return (
     <div>
       <div className="eyebrow">Расписание</div>
-      <h1 className="serif text-[36px] sm:text-[44px] font-light leading-tight mt-2 mb-2">
+      <h1 className="serif text-[26px] sm:text-[44px] font-light leading-tight mt-2 mb-2">
         Моё расписание
       </h1>
-      <p className="text-ink-soft mb-8 max-w-[640px]">
+      <p className="text-ink-soft mb-6 sm:mb-8 max-w-[640px] text-sm sm:text-base">
         Слоты задаются администратором в общем расписании салона. Если в какой-то день вы не работаете —
         отметьте это здесь, и клиенты не смогут записаться к вам в этот день.
       </p>

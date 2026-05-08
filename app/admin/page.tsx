@@ -40,17 +40,17 @@ export default async function AdminDashboard() {
   return (
     <div>
       <div className="eyebrow">Дашборд</div>
-      <h1 className="serif text-[36px] sm:text-[44px] font-light leading-tight mt-2 mb-8">
+      <h1 className="serif text-[28px] sm:text-[44px] font-light leading-tight mt-2 mb-6 sm:mb-8">
         Сегодня
       </h1>
 
       {/* KPI cards */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4 mb-6 sm:mb-8">
         <Kpi label="Заявок сегодня" value={today.bookings.total} hint={`${today.bookings.pending} в ожидании`} />
         <Kpi
-          label="Сегодня к посещению"
+          label="К посещению"
           value={today.bookings.confirmed + today.bookings.completed}
-          hint={`${today.bookings.completed} уже посетили`}
+          hint={`${today.bookings.completed} уже пришли`}
         />
         <Kpi
           label="Выручка за день"
@@ -60,10 +60,10 @@ export default async function AdminDashboard() {
         <Kpi label="В обработке" value={pendingCount} hint="всего по системе" highlight={pendingCount > 0} />
       </div>
 
-      {/* Today's bookings table */}
-      <section className="bg-bg-0 border border-line rounded-xl p-5 sm:p-7 mb-8">
-        <div className="flex items-baseline justify-between mb-4">
-          <h2 className="serif text-[22px] font-normal m-0">Записи на сегодня</h2>
+      {/* Today's bookings */}
+      <section className="bg-bg-0 border border-line rounded-xl p-4 sm:p-7 mb-6 sm:mb-8">
+        <div className="flex items-baseline justify-between gap-3 mb-4 flex-wrap">
+          <h2 className="serif text-[20px] sm:text-[22px] font-normal m-0">Записи на сегодня</h2>
           <Link href="/admin/bookings" className="text-[13px] text-ink-soft border-b border-ink-soft">
             Все заявки →
           </Link>
@@ -71,35 +71,59 @@ export default async function AdminDashboard() {
         {todayBookings.length === 0 ? (
           <p className="text-ink-mute text-sm m-0">Записей на сегодня нет.</p>
         ) : (
-          <div className="overflow-x-auto -mx-5 sm:mx-0">
-            <table className="w-full text-sm">
-              <thead className="text-left text-ink-mute font-mono text-[11px] uppercase tracking-wider">
-                <tr>
-                  <th className="px-3 py-2 sm:px-1">Время</th>
-                  <th className="px-3 py-2 sm:px-1">Услуга</th>
-                  <th className="px-3 py-2 sm:px-1">Мастер</th>
-                  <th className="px-3 py-2 sm:px-1">Клиент</th>
-                  <th className="px-3 py-2 sm:px-1">Статус</th>
-                </tr>
-              </thead>
-              <tbody>
-                {todayBookings.map((b) => (
-                  <tr key={b.id} className="border-t border-line-soft">
-                    <td className="px-3 py-2 sm:px-1 font-mono">{b.slot.time}</td>
-                    <td className="px-3 py-2 sm:px-1">{b.service.name}</td>
-                    <td className="px-3 py-2 sm:px-1">{b.master.name}</td>
-                    <td className="px-3 py-2 sm:px-1">
-                      {b.customer.name}
-                      <span className="text-ink-mute ml-1">{b.customer.phone}</span>
-                    </td>
-                    <td className="px-3 py-2 sm:px-1">
-                      <StatusBadge status={b.status} />
-                    </td>
+          <>
+            {/* Mobile list */}
+            <div className="md:hidden flex flex-col gap-2">
+              {todayBookings.map((b) => (
+                <div
+                  key={b.id}
+                  className="bg-bg-1 rounded-md p-3 flex items-center justify-between gap-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-mono text-[13px] font-medium">
+                      {b.slot.time}
+                    </div>
+                    <div className="text-[13px] truncate">{b.service.name}</div>
+                    <div className="text-[11px] text-ink-mute truncate">
+                      {b.master.name} · {b.customer.name}
+                    </div>
+                  </div>
+                  <StatusBadge status={b.status} />
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-ink-mute font-mono text-[11px] uppercase tracking-wider">
+                  <tr>
+                    <th className="px-1 py-2">Время</th>
+                    <th className="px-1 py-2">Услуга</th>
+                    <th className="px-1 py-2">Мастер</th>
+                    <th className="px-1 py-2">Клиент</th>
+                    <th className="px-1 py-2">Статус</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {todayBookings.map((b) => (
+                    <tr key={b.id} className="border-t border-line-soft">
+                      <td className="px-1 py-2 font-mono">{b.slot.time}</td>
+                      <td className="px-1 py-2">{b.service.name}</td>
+                      <td className="px-1 py-2">{b.master.name}</td>
+                      <td className="px-1 py-2">
+                        {b.customer.name}
+                        <span className="text-ink-mute ml-1">{b.customer.phone}</span>
+                      </td>
+                      <td className="px-1 py-2">
+                        <StatusBadge status={b.status} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
 
@@ -125,11 +149,17 @@ function Kpi({
 }) {
   return (
     <div
-      className={`bg-bg-0 border rounded-lg p-5 ${highlight ? "border-gold-2" : "border-line"}`}
+      className={`bg-bg-0 border rounded-lg p-3.5 sm:p-5 ${highlight ? "border-gold-2" : "border-line"}`}
     >
-      <div className="eyebrow">{label}</div>
-      <div className="serif text-[28px] sm:text-[32px] font-light leading-none mt-2">{value}</div>
-      {hint ? <div className="text-[12px] text-ink-mute mt-1.5">{hint}</div> : null}
+      <div className="font-mono text-[10px] sm:text-[11px] tracking-wider uppercase text-ink-mute leading-tight">
+        {label}
+      </div>
+      <div className="serif text-[22px] sm:text-[32px] font-light leading-none mt-1.5 sm:mt-2 break-words">
+        {value}
+      </div>
+      {hint ? (
+        <div className="text-[11px] sm:text-[12px] text-ink-mute mt-1.5 leading-tight">{hint}</div>
+      ) : null}
     </div>
   );
 }

@@ -4,16 +4,19 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "bot:client": "tsx bots/client/index.ts",
-    "bot:admin": "tsx bots/admin/index.ts"
+    "bot:admin": "tsx bots/admin/index.ts",
+    "bots:start": "tsx bots/run-all.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -90,7 +90,7 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <fieldset className="bg-bg-0 border border-line rounded-xl p-5 sm:p-6">
+    <fieldset className="bg-bg-0 border border-line rounded-xl p-4 sm:p-6">
       <legend className="font-mono text-[11px] uppercase tracking-wider text-gold-3 px-2">
         {title}
       </legend>

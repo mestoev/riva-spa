@@ -35,15 +35,18 @@ export default async function MastersPage() {
 
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-4 flex-wrap mb-6">
+      <div className="flex items-baseline justify-between gap-3 flex-wrap mb-5 sm:mb-6">
         <div>
           <div className="eyebrow">Команда</div>
-          <h1 className="serif text-[36px] sm:text-[44px] font-light leading-tight mt-2 m-0">
+          <h1 className="serif text-[28px] sm:text-[44px] font-light leading-tight mt-2 m-0">
             Мастера
           </h1>
         </div>
-        <Link href="/admin/masters/new" className="btn btn-primary">
-          + Добавить мастера
+        <Link
+          href="/admin/masters/new"
+          className="btn btn-primary !py-2.5 !px-4 !text-[13px] sm:!py-3.5 sm:!px-6 sm:!text-[14px]"
+        >
+          + Добавить
         </Link>
       </div>
 
@@ -79,72 +82,116 @@ export default async function MastersPage() {
         </div>
       ) : null}
 
-      <div className="bg-bg-0 border border-line rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left bg-bg-1">
-              <tr className="font-mono text-[11px] uppercase tracking-wider text-ink-mute">
-                <th className="px-4 py-3">Мастер</th>
-                <th className="px-4 py-3">Опыт</th>
-                <th className="px-4 py-3">Специализации</th>
-                <th className="px-4 py-3 text-center">Рейтинг</th>
-                <th className="px-4 py-3">Логин</th>
-                <th className="px-4 py-3 text-center">Активен</th>
-                <th className="px-4 py-3 text-right">Действие</th>
-              </tr>
-            </thead>
-            <tbody>
-              {masters.map((m) => (
-                <tr
-                  key={m.id}
-                  className={`border-t border-line-soft ${m.active ? "" : "opacity-50"}`}
-                >
-                  <td className="px-4 py-3">
-                    <div className="font-medium">{m.name}</div>
-                    <div className="text-[12px] text-ink-soft">{m.role}</div>
-                    <div className="text-[11px] font-mono text-ink-mute">{m.id}</div>
-                  </td>
-                  <td className="px-4 py-3 text-ink-soft">{m.exp}</td>
-                  <td className="px-4 py-3 text-ink-soft text-[12px]">
-                    {(m.specs as string[]).map((s) => SPEC_LABELS[s] ?? s).join(", ")}
-                  </td>
-                  <td className="px-4 py-3 text-center font-mono">
-                    {m.rating ? `⭐ ${m.rating}` : "—"}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-[12px]">
-                    {m.username ? (
-                      <span>{m.username}</span>
-                    ) : (
-                      <span className="text-ink-mute">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <ToggleActive id={m.id} active={m.active} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-3">
-                      <ResetPasswordButton id={m.id} />
-                      <Link
-                        href={`/admin/masters/${m.id}`}
-                        className="text-[13px] text-ink-soft border-b border-ink-soft hover:text-ink"
-                      >
-                        Редактировать
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {masters.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-ink-mute">
-                    Мастеров пока нет.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+      {masters.length === 0 ? (
+        <div className="bg-bg-0 border border-line rounded-xl py-16 px-6 text-center text-ink-mute">
+          Мастеров пока нет.
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Mobile cards */}
+          <div className="md:hidden flex flex-col gap-3">
+            {masters.map((m) => (
+              <div
+                key={m.id}
+                className={`bg-bg-0 border border-line rounded-lg p-4 ${
+                  m.active ? "" : "opacity-60"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium leading-tight">{m.name}</div>
+                    <div className="text-[12px] text-ink-soft mt-0.5">{m.role}</div>
+                    <div className="text-[11px] text-ink-mute mt-0.5">{m.exp}</div>
+                  </div>
+                  <div className="text-right shrink-0 font-mono text-[13px]">
+                    {m.rating ? `⭐ ${m.rating}` : ""}
+                  </div>
+                </div>
+                <div className="mt-2 text-[12px] text-ink-soft">
+                  {(m.specs as string[]).map((s) => SPEC_LABELS[s] ?? s).join(", ")}
+                </div>
+                {m.username ? (
+                  <div className="mt-2 text-[11px] font-mono text-ink-mute">
+                    логин: {m.username}
+                  </div>
+                ) : null}
+                <div className="mt-3 pt-3 border-t border-line-soft flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 text-[12px] text-ink-soft">
+                    <ToggleActive id={m.id} active={m.active} />
+                    <span>{m.active ? "активен" : "скрыт"}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <ResetPasswordButton id={m.id} />
+                    <Link
+                      href={`/admin/masters/${m.id}`}
+                      className="text-[13px] text-ink border-b border-ink"
+                    >
+                      Изменить →
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden md:block bg-bg-0 border border-line rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left bg-bg-1">
+                  <tr className="font-mono text-[11px] uppercase tracking-wider text-ink-mute">
+                    <th className="px-4 py-3">Мастер</th>
+                    <th className="px-4 py-3">Опыт</th>
+                    <th className="px-4 py-3">Специализации</th>
+                    <th className="px-4 py-3 text-center">Рейтинг</th>
+                    <th className="px-4 py-3">Логин</th>
+                    <th className="px-4 py-3 text-center">Активен</th>
+                    <th className="px-4 py-3 text-right">Действие</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {masters.map((m) => (
+                    <tr
+                      key={m.id}
+                      className={`border-t border-line-soft ${m.active ? "" : "opacity-50"}`}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{m.name}</div>
+                        <div className="text-[12px] text-ink-soft">{m.role}</div>
+                        <div className="text-[11px] font-mono text-ink-mute">{m.id}</div>
+                      </td>
+                      <td className="px-4 py-3 text-ink-soft">{m.exp}</td>
+                      <td className="px-4 py-3 text-ink-soft text-[12px]">
+                        {(m.specs as string[]).map((s) => SPEC_LABELS[s] ?? s).join(", ")}
+                      </td>
+                      <td className="px-4 py-3 text-center font-mono">
+                        {m.rating ? `⭐ ${m.rating}` : "—"}
+                      </td>
+                      <td className="px-4 py-3 font-mono text-[12px]">
+                        {m.username ?? <span className="text-ink-mute">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <ToggleActive id={m.id} active={m.active} />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end gap-3">
+                          <ResetPasswordButton id={m.id} />
+                          <Link
+                            href={`/admin/masters/${m.id}`}
+                            className="text-[13px] text-ink-soft border-b border-ink-soft hover:text-ink"
+                          >
+                            Редактировать
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

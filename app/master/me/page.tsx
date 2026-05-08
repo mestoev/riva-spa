@@ -37,7 +37,7 @@ export default async function MasterMePage() {
   return (
     <div>
       <div className="eyebrow">Профиль</div>
-      <h1 className="serif text-[36px] sm:text-[44px] font-light leading-tight mt-2 mb-6">
+      <h1 className="serif text-[26px] sm:text-[44px] font-light leading-tight mt-2 mb-5 sm:mb-6">
         {master.name}
       </h1>
 

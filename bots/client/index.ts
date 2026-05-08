@@ -37,6 +37,7 @@ import {
 } from "../shared/format";
 import { askAI, loadHistory } from "../../lib/ai";
 import { getCustomerStats } from "../../lib/loyalty";
+import { transcribeAudio } from "../../lib/stt";
 
 const TOKEN = process.env.TELEGRAM_CLIENT_BOT_TOKEN;
 if (!TOKEN) {
@@ -453,12 +454,18 @@ bot.on("message:text", async (ctx) => {
 async function handleAIMessage(
   ctx: Parameters<Parameters<typeof bot.on>[1]>[0],
 ) {
-  const userId = ctx.from?.id;
-  if (!userId) return;
   const userText = ("text" in ctx.message! && ctx.message.text) || "";
-  if (!userText.trim()) return;
+  await handleAITextResponse(ctx, userText);
+}
 
-  // Show "typing…" while we wait for the model
+/** Shared between text-message and voice-transcript paths. */
+async function handleAITextResponse(
+  ctx: Parameters<Parameters<typeof bot.on>[1]>[0],
+  userText: string,
+) {
+  const userId = ctx.from?.id;
+  if (!userId || !userText.trim()) return;
+
   try {
     await ctx.replyWithChatAction("typing");
   } catch {
@@ -470,13 +477,84 @@ async function handleAIMessage(
 
   if (!result) {
     await ctx.reply(
-      "Сейчас не могу ответить. Можно посмотреть услуги через /book или позвонить +7 (727) 311-45-67.",
+      "Сейчас не могу ответить. Можно посмотреть услуги через /book или позвонить.",
     );
     return;
   }
 
   await ctx.reply(result.text);
 }
+
+// Voice message → transcribe → treat as text
+bot.on("message:voice", async (ctx) => {
+  const userId = ctx.from?.id;
+  if (!userId) return;
+
+  await ctx.replyWithChatAction("typing").catch(() => null);
+
+  // 1) Download the file from Telegram
+  let audioBuf: ArrayBuffer;
+  try {
+    const file = await ctx.getFile();
+    const filePath = file.file_path;
+    if (!filePath) throw new Error("no file_path");
+    const url = `https://api.telegram.org/file/bot${TOKEN}/${filePath}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`telegram file download ${res.status}`);
+    audioBuf = await res.arrayBuffer();
+  } catch (err) {
+    console.error("[bot:client] voice download failed:", err);
+    await ctx.reply("Не смог скачать голосовое сообщение. Попробуйте ещё раз.");
+    return;
+  }
+
+  // 2) Transcribe via Groq Whisper
+  const stt = await transcribeAudio(audioBuf, {
+    language: "ru",
+    mime: "audio/ogg",
+    filename: "voice.ogg",
+  });
+  if (!stt) {
+    await ctx.reply(
+      "Не смог распознать голосовое. Можете написать текстом? Или нажать /book для записи по шагам.",
+    );
+    return;
+  }
+
+  // Show the user what we heard — useful if Whisper misheard
+  await ctx.reply(`🎙 Понял: «${stt.text}»`);
+
+  // 3) Route to the same logic as text messages
+  const s = sessions.get(userId);
+
+  if (s && s.step === "enter_name") {
+    const name = stt.text.trim();
+    if (name.length < 2 || name.length > 80) {
+      await ctx.reply("Напишите имя текстом, пожалуйста.");
+      return;
+    }
+    s.name = name;
+    s.step = "request_phone";
+    const kb = new Keyboard().requestContact("📱 Поделиться номером").resized().oneTime();
+    await ctx.reply("Отлично. Теперь поделитесь номером телефона.", { reply_markup: kb });
+    return;
+  }
+
+  if (s && s.step === "request_phone") {
+    // Try to extract digits from speech
+    const digits = stt.text.replace(/\D/g, "");
+    if (digits.length >= 10 && digits.length <= 15) {
+      s.phone = digits.startsWith("8") ? `+7${digits.slice(1)}` : `+${digits}`;
+      await finalizeBooking(ctx, s);
+      return;
+    }
+    await ctx.reply("Не разобрал номер. Введите цифрами или нажмите кнопку поделиться.");
+    return;
+  }
+
+  // 4) No active flow — feed transcript to AI
+  await handleAITextResponse(ctx, stt.text);
+});
 
 // Phone via Telegram's "share contact" button
 bot.on("message:contact", async (ctx) => {

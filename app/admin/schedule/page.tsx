@@ -16,10 +16,10 @@ export default async function SchedulePage() {
   return (
     <div>
       <div className="eyebrow">Календарь</div>
-      <h1 className="serif text-[36px] sm:text-[44px] font-light leading-tight mt-2 mb-2">
+      <h1 className="serif text-[26px] sm:text-[44px] font-light leading-tight mt-2 mb-2">
         Расписание
       </h1>
-      <p className="text-ink-soft max-w-[640px] mb-8">
+      <p className="text-ink-soft max-w-[640px] mb-6 sm:mb-8 text-sm sm:text-base">
         Слоты задаются на каждый день недели. На отдельные даты можно сделать исключение
         (закрыть день или поменять часы). Эти настройки сразу применяются к сайту и Telegram-ботам.
       </p>

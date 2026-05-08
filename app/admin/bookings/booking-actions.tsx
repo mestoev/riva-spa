@@ -23,10 +23,10 @@ export function BookingActions({ id, status }: { id: string; status: string }) {
     });
 
   const buttonClass =
-    "text-[12px] px-2 py-1 rounded border transition-colors disabled:opacity-50";
+    "text-[12px] px-2.5 py-1.5 rounded border transition-colors disabled:opacity-50";
 
   return (
-    <div className="flex flex-wrap justify-end gap-1.5">
+    <div className="flex flex-wrap md:justify-end gap-1.5">
       {status === "pending" ? (
         <>
           <button
