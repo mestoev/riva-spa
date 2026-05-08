@@ -58,8 +58,8 @@ export function ContactClient({ settings }: { settings: SiteSettings }) {
             </div>
 
             {tab === "form" ? <ContactForm /> : null}
-            {tab === "call" ? <CallTab /> : null}
-            {tab === "chat" ? <TelegramTab /> : null}
+            {tab === "call" ? <CallTab settings={CONTACT} /> : null}
+            {tab === "chat" ? <TelegramTab settings={CONTACT} /> : null}
           </div>
 
           <div className="flex flex-col gap-4">
@@ -200,13 +200,13 @@ function ContactForm() {
   );
 }
 
-function CallTab() {
+function CallTab({ settings }: { settings: SiteSettings }) {
   return (
     <div className="flex-1 flex flex-col justify-center text-center gap-4">
-      <div className="serif text-[36px] sm:text-[48px] font-light">{CONTACT.phone}</div>
+      <div className="serif text-[36px] sm:text-[48px] font-light">{settings.phone}</div>
       <div className="text-ink-soft">Ежедневно с 09:00 до 23:00</div>
       <div className="mt-4">
-        <a href={`tel:${CONTACT.phoneRaw}`} className="btn btn-primary">
+        <a href={`tel:${settings.phoneRaw}`} className="btn btn-primary">
           Позвонить сейчас
         </a>
       </div>
@@ -214,7 +214,7 @@ function CallTab() {
   );
 }
 
-function TelegramTab() {
+function TelegramTab({ settings }: { settings: SiteSettings }) {
   return (
     <div className="flex-1 flex flex-col justify-center text-center gap-4">
       <div className="serif text-[24px] sm:text-[28px] font-light">
@@ -225,7 +225,7 @@ function TelegramTab() {
       </p>
       <div className="mt-2">
         <a
-          href={CONTACT.telegramBotUrl || "https://t.me/rivaspa_bot"}
+          href={settings.telegramBotUrl || "https://t.me/rivaspa_bot"}
           target="_blank"
           rel="noopener noreferrer"
           className="btn btn-primary"
