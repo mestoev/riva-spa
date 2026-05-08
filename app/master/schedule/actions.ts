@@ -56,12 +56,16 @@ export async function toggleFullDayOff(formData: FormData) {
       await prisma.masterBlackout.delete({ where: { id } });
     }
   } else {
-    // Mark whole day off, and remove any per-slot blackouts on that date
-    await prisma.masterBlackout.upsert({
-      where: { masterId_date_time: { masterId: me.id, date, time: null } },
-      create: { masterId: me.id, date, time: null },
-      update: {},
+    // Mark whole day off, and remove any per-slot blackouts on that date.
+    // Prisma's composite unique key doesn't accept `null` in where, so use findFirst + create.
+    const existing = await prisma.masterBlackout.findFirst({
+      where: { masterId: me.id, date, time: null },
     });
+    if (!existing) {
+      await prisma.masterBlackout.create({
+        data: { masterId: me.id, date, time: null },
+      });
+    }
     await prisma.masterBlackout.deleteMany({
       where: { masterId: me.id, date, time: { not: null } },
     });
