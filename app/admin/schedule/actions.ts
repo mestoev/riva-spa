@@ -37,12 +37,13 @@ export async function setDayClosed(weekday: number) {
   revalidatePath("/booking");
 }
 
-export async function addException(formData: FormData): Promise<{ ok: boolean; error?: string }> {
+export async function addException(formData: FormData): Promise<void> {
   const dateStr = String(formData.get("date") ?? "").trim();
   const slotsRaw = String(formData.get("slots") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim() || null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    return { ok: false, error: "Дата в формате YYYY-MM-DD" };
+    // Bad date — just bail; UI uses <input type="date"> so this is rare.
+    return;
   }
   const date = new Date(`${dateStr}T00:00:00.000Z`);
   const slots = parseSlotTimes(slotsRaw);
@@ -53,7 +54,6 @@ export async function addException(formData: FormData): Promise<{ ok: boolean; e
   });
   revalidatePath("/admin/schedule");
   revalidatePath("/booking");
-  return { ok: true };
 }
 
 export async function deleteException(id: number) {
