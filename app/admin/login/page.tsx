@@ -1,0 +1,21 @@
+import type { Metadata } from "next";
+import { LoginForm } from "./login-form";
+
+export const metadata: Metadata = {
+  title: "Вход — RIVA admin",
+  robots: { index: false, follow: false },
+};
+
+export default function LoginPage({ searchParams }: { searchParams: { next?: string; error?: string } }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-bg-1 px-5">
+      <div className="w-full max-w-[360px] bg-bg-0 border border-line rounded-xl p-7 shadow-md">
+        <div className="eyebrow">RIVA · admin</div>
+        <h1 className="serif text-[28px] font-light leading-tight mt-2 mb-6">
+          Вход в админ-панель
+        </h1>
+        <LoginForm next={searchParams.next} error={searchParams.error} />
+      </div>
+    </div>
+  );
+}

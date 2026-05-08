@@ -1,0 +1,384 @@
+// RIVA POOL SPA — database schema
+// Postgres on Neon. Migrations: `npm run db:migrate`.
+// One DB shared by website, customer Telegram bot, admin Telegram bot.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================================
+// CATALOG
+// ==========================================================
+
+enum ServiceCategory {
+  massage
+  pool
+  bath
+  face
+  duo
+}
+
+model Service {
+  id        String          @id // slug, e.g. "classic-massage"
+  category  ServiceCategory
+  name      String
+  desc      String
+  duration  Int // minutes
+  price     Int // KZT (integer tenge)
+  tag       String?
+  active    Boolean         @default(true)
+  sortOrder Int             @default(0)
+  bookings  Booking[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("services")
+}
+
+model Master {
+  id        String   @id // "m1", "any", etc.
+  name      String
+  role      String
+  exp       String
+  rating    Float?
+  // Specialties — list of ServiceCategory values OR "all"
+  specs     String[]
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+
+  // === Login credentials for the master cabinet (/master/*) ===
+  // Set when admin creates the master; master can change later.
+  username     String? @unique
+  passwordHash String?
+
+  bookings  Booking[]
+  slots     Slot[]
+  blackouts MasterBlackout[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("masters")
+}
+
+// One-off blackouts a master adds himself ("don't work that day"
+// or "don't work that slot"). Cooperates with Slot.blocked from admin.
+model MasterBlackout {
+  id       Int      @id @default(autoincrement())
+  masterId String
+  master   Master   @relation(fields: [masterId], references: [id])
+  // The whole day is non-working
+  date     DateTime @db.Date
+  // Optional time. If null — whole day off. If set — single slot off.
+  time     String?
+  reason   String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([masterId, date, time])
+  @@index([date])
+  @@map("master_blackouts")
+}
+
+// ==========================================================
+// SCHEDULE
+// ==========================================================
+// We materialize slots so the calendar is queryable.
+// A slot is one (date, time, master) tuple. Booking links to it.
+
+model Slot {
+  id       Int      @id @default(autoincrement())
+  date     DateTime @db.Date // 2026-05-08
+  time     String // "10:00"
+  masterId String?
+  master   Master?  @relation(fields: [masterId], references: [id])
+  // status: free / blocked (manually closed) / booked-via Booking
+  blocked  Boolean  @default(false)
+  booking  Booking?
+
+  createdAt DateTime @default(now())
+
+  @@unique([date, time, masterId])
+  @@index([date])
+  @@map("slots")
+}
+
+// ==========================================================
+// CUSTOMERS & BOOKINGS
+// ==========================================================
+
+model Customer {
+  id       String  @id @default(cuid())
+  name     String
+  phone    String  @unique
+  email    String?
+  // Optional Telegram link (set when customer first uses the bot).
+  // NOT unique — one Telegram user may book for multiple people
+  // (e.g. for themselves, partner, friend).
+  telegramId String?
+  telegramUsername String?
+
+  bookings Booking[]
+  contacts ContactRequest[]
+  bonusTx  BonusTransaction[]
+
+  // Cached counter — sum of bonus_transactions.points for this customer.
+  // Always rebuildable from the ledger.
+  bonusPoints Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Lookup by Telegram ID (non-unique, but indexed for the "my bookings" query)
+  @@index([telegramId])
+  @@map("customers")
+}
+
+// ==========================================================
+// LOYALTY — bonus points
+// ==========================================================
+// Append-only ledger: positive = earned, negative = redeemed.
+// Customer.bonusPoints is the sum, kept in sync via the awardPoints helper.
+
+model BonusTransaction {
+  id         Int      @id @default(autoincrement())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  bookingId  String?
+  // Signed: +N for earned, -N for redeemed/adjusted
+  points     Int
+  // "earned" | "redeemed" | "adjustment" | "expired"
+  reason     String
+  // Free-form note (e.g. "5% от 30 000 ₸")
+  note       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId, createdAt])
+  @@map("bonus_transactions")
+}
+
+// Single-row config (id=1).
+model LoyaltySettings {
+  id           Int     @id @default(autoincrement())
+  enabled      Boolean @default(true)
+  // % of completed booking price awarded as points (e.g. 5 → 5%)
+  earnPercent  Float   @default(5)
+  // Max share of a bill that can be paid by points (e.g. 30 → 30%)
+  redeemMaxPct Float   @default(30)
+  // KZT value of one point (1 → 1 балл = 1 ₸)
+  perPointKzt  Int     @default(1)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("loyalty_settings")
+}
+
+enum BookingStatus {
+  pending // submitted, awaiting admin confirmation
+  confirmed
+  cancelled
+  no_show
+  completed
+}
+
+enum BookingSource {
+  website
+  telegram
+  phone
+  walkin
+}
+
+model Booking {
+  id           String         @id @default(cuid())
+  customerId   String
+  customer     Customer       @relation(fields: [customerId], references: [id])
+  serviceId    String
+  service      Service        @relation(fields: [serviceId], references: [id])
+  masterId     String
+  master       Master         @relation(fields: [masterId], references: [id])
+  slotId       Int            @unique
+  slot         Slot           @relation(fields: [slotId], references: [id])
+
+  status       BookingStatus  @default(pending)
+  source       BookingSource  @default(website)
+  notes        String?
+  notify       String         @default("sms") // sms | whatsapp | call | telegram
+  // Snapshot price at booking time (services.price may change later)
+  priceSnapshot Int
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  events       AdminEvent[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("bookings")
+}
+
+// ==========================================================
+// CONTACT FORM
+// ==========================================================
+
+model ContactRequest {
+  id         String    @id @default(cuid())
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  name       String
+  phone      String
+  message    String
+  source     BookingSource @default(website)
+  resolved   Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@map("contact_requests")
+}
+
+// ==========================================================
+// ADMIN USERS (для Telegram-бота владельца)
+// ==========================================================
+// Кто получает уведомления о новых заявках и может пользоваться
+// админ-командами в Telegram. Управляется командой /admin add <id>
+// в самом боте (см. этап 4).
+
+model AdminUser {
+  id              Int      @id @default(autoincrement())
+  telegramId      String   @unique // numeric Telegram user_id as string
+  telegramUsername String?
+  displayName     String?
+  // role: "owner" — может всё, включая добавление других админов
+  //        "manager" — видит заявки, не может менять список админов
+  role            String   @default("manager")
+  // Получает push-уведомления о новых заявках
+  notify          Boolean  @default(true)
+  // Активен / деактивирован (история сохраняется)
+  active          Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admin_users")
+}
+
+// ==========================================================
+// SITE SETTINGS — editable contacts, hours, meta. Single-row config.
+// ==========================================================
+
+model SiteSettings {
+  id              Int      @id @default(autoincrement())
+  name            String   @default("RIVA POOL SPA")
+  tagline         String   @default("Тишина у воды")
+  city            String   @default("Актобе")
+  addressLine     String   @default("ул. Загородная 17")
+  phone           String   @default("+7 (727) 311-45-67")
+  phoneRaw        String   @default("+77273114567")
+  email           String   @default("hello@riva.spa")
+  instagram       String   @default("@riva.pool.spa")
+  telegramBotUrl  String   @default("https://t.me/rivaspa_bot")
+  hoursMonThu     String   @default("09:00 — 23:00")
+  hoursFriSun     String   @default("09:00 — 00:00")
+  metaTitle       String   @default("RIVA POOL SPA — Тишина у воды")
+  metaDescription String   @default("Бассейн на террасе, банный комплекс и СПА в приватной обстановке. Актобе.")
+
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+// ==========================================================
+// SCHEDULE — working hours + exceptions
+// ==========================================================
+// Slots are derived from working hours per weekday + per-date overrides.
+// "Slot" rows in `slots` only exist when something is booked or blocked.
+
+model WorkingHours {
+  id Int @id @default(autoincrement())
+  // 0 = Mon, 1 = Tue, …, 6 = Sun
+  weekday Int @unique
+  // Slot times in HH:MM. Empty array = closed that weekday.
+  slotTimes String[]
+
+  updatedAt DateTime @updatedAt
+
+  @@map("working_hours")
+}
+
+// Per-date override of the weekday schedule. Empty slotTimes = closed for that date.
+model ScheduleException {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @unique @db.Date
+  slotTimes String[]
+  reason    String?
+
+  createdAt DateTime @default(now())
+
+  @@map("schedule_exceptions")
+}
+
+// ==========================================================
+// AI ASSISTANT — settings (single-row config) + conversation log
+// ==========================================================
+
+model AISettings {
+  id            Int      @id @default(autoincrement())
+  enabled       Boolean  @default(true)
+  provider      String   @default("groq")
+  model         String   @default("llama-3.3-70b-versatile")
+  temperature   Float    @default(0.5)
+  maxTokens     Int      @default(700)
+  // The "personality" / tone instruction. Editable from /ai prompt.
+  systemPrompt  String   @default("Ты — администратор спа-салона RIVA POOL SPA. Отвечай тепло, дружелюбно и кратко (2–3 предложения, не больше), на русском языке. Если клиент хочет записаться — напомни про команду /book. Никогда не выдумывай услуги, цены, мастеров или часы работы — используй только информацию, которая будет дана в этом промпте.")
+  // Free-form facts the owner adds via /ai facts: parking info, payment methods, special offers…
+  customFacts   String   @default("")
+
+  updatedAt DateTime @updatedAt
+
+  @@map("ai_settings")
+}
+
+// Log of AI conversations — useful for debugging and future analytics.
+// We don't keep them forever — admin can purge via /ai purge.
+model AIMessage {
+  id           Int      @id @default(autoincrement())
+  // Telegram user_id for grouping
+  telegramId   String
+  role         String   // "user" | "assistant"
+  content      String
+  // Tokens / latency for cost tracking
+  promptTokens Int?
+  completionTokens Int?
+  latencyMs    Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([telegramId, createdAt])
+  @@map("ai_messages")
+}
+
+// ==========================================================
+// ADMIN AUDIT LOG
+// ==========================================================
+
+model AdminEvent {
+  id        Int      @id @default(autoincrement())
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id])
+  // who: "system", "telegram-admin:<userId>", "web:<email>"
+  actor     String
+  // type: "created", "confirmed", "cancelled", "note"
+  action    String
+  payload   Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("admin_events")
+}
