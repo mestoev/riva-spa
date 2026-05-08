@@ -27,13 +27,28 @@ function b64urlDecode(s: string): Uint8Array {
   return bytes;
 }
 
-const utf8 = (s: string) => new TextEncoder().encode(s);
+function utf8(s: string): Uint8Array<ArrayBuffer> {
+  const src = new TextEncoder().encode(s);
+  const buf = new ArrayBuffer(src.byteLength);
+  const view = new Uint8Array(buf);
+  view.set(src);
+  return view;
+}
 
 // ===== Password hashing (PBKDF2-SHA256) =====
 
+function freshSalt(): Uint8Array<ArrayBuffer> {
+  // crypto.getRandomValues returns Uint8Array<ArrayBufferLike>; copy into fresh AB.
+  const tmp = crypto.getRandomValues(new Uint8Array(16));
+  const buf = new ArrayBuffer(16);
+  const out = new Uint8Array(buf);
+  out.set(tmp);
+  return out;
+}
+
 export async function hashPassword(plain: string): Promise<string> {
   if (plain.length < 4) throw new Error("Password too short");
-  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const salt = freshSalt();
   const km = await crypto.subtle.importKey(
     "raw",
     utf8(plain),
@@ -55,7 +70,10 @@ export async function verifyPassword(plain: string, stored: string | null): Prom
   if (algo !== "pbkdf2") return false;
   const iterations = Number(itStr);
   if (!Number.isFinite(iterations) || iterations < 1000) return false;
-  const salt = b64urlDecode(saltB64);
+  const saltDecoded = b64urlDecode(saltB64);
+  const sb = new ArrayBuffer(saltDecoded.byteLength);
+  const salt = new Uint8Array(sb);
+  salt.set(saltDecoded);
   const km = await crypto.subtle.importKey(
     "raw",
     utf8(plain),
@@ -74,7 +92,8 @@ export async function verifyPassword(plain: string, stored: string | null): Prom
 /** Generate a friendly random password (8 chars, no ambiguous letters). */
 export function generatePassword(): string {
   const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
   let out = "";
   for (let i = 0; i < bytes.length; i += 1) out += alphabet[bytes[i] % alphabet.length];
   return out;

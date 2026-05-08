@@ -22,7 +22,9 @@ export async function transcribeAudio(
     return null;
   }
 
-  const blob = new Blob([audio], { type: options.mime ?? "audio/ogg" });
+  // Cast: ArrayBuffer / Uint8Array satisfy BlobPart at runtime; modern TS DOM
+  // typings are picky about Uint8Array<ArrayBufferLike> vs <ArrayBuffer>.
+  const blob = new Blob([audio as BlobPart], { type: options.mime ?? "audio/ogg" });
   const fd = new FormData();
   fd.append("file", blob, options.filename ?? "voice.ogg");
   fd.append("model", "whisper-large-v3");

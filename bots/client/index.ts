@@ -25,7 +25,7 @@
  *   → enter name → request phone (Telegram contact share) → confirm.
  */
 import "dotenv/config";
-import { Bot, GrammyError, HttpError, InlineKeyboard, Keyboard } from "grammy";
+import { Bot, GrammyError, HttpError, InlineKeyboard, Keyboard, type Context } from "grammy";
 import { PrismaClient, type Master, type Service } from "@prisma/client";
 import { getSchedule } from "../../lib/schedule";
 import {
@@ -114,7 +114,7 @@ function mainMenu(): InlineKeyboard {
     .text("📞 Контакты", "menu:contact");
 }
 
-async function showWelcome(ctx: Parameters<Parameters<typeof bot.command>[1]>[0]) {
+async function showWelcome(ctx: Context) {
   const text = [
     `<b>RIVA POOL SPA</b> — тишина у воды.`,
     ``,
@@ -247,7 +247,7 @@ bot.callbackQuery(/^cat:(.+)$/, async (ctx) => {
 
 // ===== Booking wizard =====
 
-async function startBookingFlow(ctx: Parameters<Parameters<typeof bot.command>[1]>[0]) {
+async function startBookingFlow(ctx: Context) {
   const userId = ctx.from?.id;
   if (!userId) return;
   const s = sess(userId);
@@ -452,7 +452,7 @@ bot.on("message:text", async (ctx) => {
 });
 
 async function handleAIMessage(
-  ctx: Parameters<Parameters<typeof bot.on>[1]>[0],
+  ctx: Context,
 ) {
   const userText = ("text" in ctx.message! && ctx.message.text) || "";
   await handleAITextResponse(ctx, userText);
@@ -460,7 +460,7 @@ async function handleAIMessage(
 
 /** Shared between text-message and voice-transcript paths. */
 async function handleAITextResponse(
-  ctx: Parameters<Parameters<typeof bot.on>[1]>[0],
+  ctx: Context,
   userText: string,
 ) {
   const userId = ctx.from?.id;
@@ -568,7 +568,7 @@ bot.on("message:contact", async (ctx) => {
 });
 
 async function finalizeBooking(
-  ctx: Parameters<Parameters<typeof bot.on>[1]>[0],
+  ctx: Context,
   s: Session,
 ) {
   const userId = ctx.from!.id;
@@ -717,7 +717,7 @@ async function finalizeBooking(
 // ===== /me — personal cabinet (stats + bonus points) =====
 
 async function showMyProfile(
-  ctx: Parameters<Parameters<typeof bot.command>[1]>[0],
+  ctx: Context,
 ) {
   const userId = ctx.from?.id;
   if (!userId) return;
@@ -802,7 +802,7 @@ async function showMyProfile(
 
 // ===== /my — show user's upcoming bookings =====
 
-async function showMyBookings(ctx: Parameters<Parameters<typeof bot.command>[1]>[0]) {
+async function showMyBookings(ctx: Context) {
   const userId = ctx.from?.id;
   if (!userId) return;
   // telegramId is non-unique (one TG user can book for multiple people),

@@ -18,16 +18,27 @@ function b64urlEncode(bytes: Uint8Array): string {
   return btoa(bin).replace(/=+$/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
-function b64urlDecode(s: string): Uint8Array {
+function b64urlDecode(s: string): Uint8Array<ArrayBuffer> {
   const pad = "=".repeat((4 - (s.length % 4)) % 4);
   const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/") + pad);
-  const bytes = new Uint8Array(bin.length);
+  const buf = new ArrayBuffer(bin.length);
+  const bytes = new Uint8Array(buf);
   for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
   return bytes;
 }
 
-function utf8(s: string): Uint8Array {
-  return new TextEncoder().encode(s);
+/**
+ * Encode a string as bytes backed by a fresh ArrayBuffer.
+ * `TextEncoder.encode()` returns `Uint8Array<ArrayBufferLike>` in modern TS lib
+ * typings, which crypto.subtle (typed against `BufferSource`) doesn't accept.
+ * Copying into a fresh ArrayBuffer guarantees the right backing-buffer type.
+ */
+function utf8(s: string): Uint8Array<ArrayBuffer> {
+  const src = new TextEncoder().encode(s);
+  const buf = new ArrayBuffer(src.byteLength);
+  const view = new Uint8Array(buf);
+  view.set(src);
+  return view;
 }
 
 function utf8Decode(b: Uint8Array): string {
@@ -36,7 +47,7 @@ function utf8Decode(b: Uint8Array): string {
 
 // ===== HMAC-SHA256 via Web Crypto =====
 
-async function hmacSign(secret: string, data: string): Promise<Uint8Array> {
+async function hmacSign(secret: string, data: string): Promise<Uint8Array<ArrayBuffer>> {
   const key = await crypto.subtle.importKey(
     "raw",
     utf8(secret),
@@ -45,10 +56,13 @@ async function hmacSign(secret: string, data: string): Promise<Uint8Array> {
     ["sign"],
   );
   const sig = await crypto.subtle.sign("HMAC", key, utf8(data));
-  return new Uint8Array(sig);
+  // Re-wrap so the return type's backing buffer is concretely ArrayBuffer.
+  const out = new Uint8Array(new ArrayBuffer(sig.byteLength));
+  out.set(new Uint8Array(sig));
+  return out;
 }
 
-async function hmacVerify(secret: string, data: string, sig: Uint8Array): Promise<boolean> {
+async function hmacVerify(secret: string, data: string, sig: Uint8Array<ArrayBuffer>): Promise<boolean> {
   const key = await crypto.subtle.importKey(
     "raw",
     utf8(secret),
@@ -88,7 +102,7 @@ export async function verifySession(token: string | undefined | null): Promise<A
   const payloadB64 = token.slice(0, dot);
   const sigB64 = token.slice(dot + 1);
 
-  let sigBytes: Uint8Array;
+  let sigBytes: Uint8Array<ArrayBuffer>;
   try {
     sigBytes = b64urlDecode(sigB64);
   } catch {
