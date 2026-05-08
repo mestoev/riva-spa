@@ -112,7 +112,7 @@ export function BookingClient({
   const day = schedule[dayIdx];
 
   return (
-    <section className="pt-10 sm:pt-16 pb-32 lg:pb-32">
+    <section className="pt-10 sm:pt-16 pb-44 lg:pb-32">
       <div className="container-x">
         <div className="eyebrow">Бронирование</div>
         <h1
@@ -181,7 +181,7 @@ export function BookingClient({
             ) : null}
 
             {step < 4 ? (
-              <div className="mt-8 pt-6 border-t border-line-soft flex justify-between items-center gap-3 flex-wrap">
+              <div className="mt-8 pt-6 border-t border-line-soft hidden lg:flex justify-between items-center gap-3 flex-wrap">
                 {step > 0 ? (
                   <button
                     type="button"
@@ -211,7 +211,17 @@ export function BookingClient({
           </div>
 
           {/* Summary — sticky on desktop, fixed bottom on mobile */}
-          <Summary service={service} master={master} day={day} time={time} />
+          <Summary
+            service={service}
+            master={master}
+            day={day}
+            time={time}
+            step={step}
+            canNext={canNext}
+            submitting={submitting}
+            onBack={() => setStep(Math.max(0, step - 1))}
+            onNext={next}
+          />
         </div>
       </div>
     </section>
@@ -663,12 +673,27 @@ function Summary({
   master,
   day,
   time,
+  step,
+  canNext,
+  submitting,
+  onBack,
+  onNext,
 }: {
   service: Service | null;
   master: Master | null;
   day: ScheduleDay | null;
   time: string | null;
+  step: number;
+  canNext: boolean;
+  submitting: boolean;
+  onBack: () => void;
+  onNext: () => void;
 }) {
+  // Hide the sticky bar on the final "confirmed" screen
+  const showBar = step < 4;
+  const nextLabel =
+    step === 3 ? (submitting ? "Записываем…" : "Подтвердить") : "Далее";
+
   return (
     <>
       {/* Desktop sticky panel */}
@@ -693,23 +718,60 @@ function Summary({
         </div>
       </aside>
 
-      {/* Mobile sticky bottom bar */}
-      <div className="lg:hidden fixed left-0 right-0 bottom-0 z-30 bg-bg-0 border-t border-line p-4 pb-[calc(env(safe-area-inset-bottom)+16px)]">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-[11px] text-ink-mute truncate">
-              {service?.name || "Выберите услугу"}
+      {/* Mobile sticky bottom bar with action buttons — always visible while booking */}
+      {showBar ? (
+        <div
+          className="lg:hidden fixed left-0 right-0 bottom-0 z-30 bg-bg-0 border-t border-line shadow-[0_-8px_24px_rgba(0,0,0,0.06)]
+                     px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)]"
+        >
+          <div className="flex items-center justify-between gap-3 mb-2.5">
+            <div className="min-w-0">
+              <div className="text-[11px] text-ink-mute truncate">
+                {service?.name || "Выберите услугу"}
+              </div>
+              <div className="serif text-[18px] leading-tight">
+                {service ? service.price.toLocaleString("ru-RU") : "—"}
+                <span className="text-[12px] text-ink-mute ml-1">₸</span>
+              </div>
             </div>
-            <div className="serif text-[20px] leading-tight">
-              {service ? service.price.toLocaleString("ru-RU") : "—"}
-              <span className="text-[12px] text-ink-mute ml-1">₸</span>
+            <div className="text-right shrink-0 text-[12px] text-ink-mute leading-tight">
+              {day && time ? (
+                <>
+                  {day.day} {day.month}
+                  <br />
+                  {time}
+                </>
+              ) : (
+                "Дата и время"
+              )}
             </div>
           </div>
-          <div className="text-right shrink-0 text-[12px] text-ink-mute">
-            {day && time ? `${day.day} ${day.month}, ${time}` : "Дата и время"}
+          <div className="flex gap-2">
+            {step > 0 ? (
+              <button
+                type="button"
+                onClick={onBack}
+                className="btn btn-ghost flex-1 justify-center !py-3"
+              >
+                <Icon.arrowL style={{ width: 14, height: 14 }} /> Назад
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onNext}
+              disabled={!canNext || submitting}
+              className="btn btn-primary flex-[2] justify-center !py-3"
+              style={{
+                opacity: canNext && !submitting ? 1 : 0.4,
+                cursor: canNext && !submitting ? "pointer" : "not-allowed",
+              }}
+            >
+              {nextLabel}
+              <Icon.arrow style={{ width: 14, height: 14 }} />
+            </button>
           </div>
         </div>
-      </div>
+      ) : null}
     </>
   );
 }
