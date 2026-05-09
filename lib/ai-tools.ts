@@ -41,11 +41,16 @@ export const TOOLS: ToolDefinition[] = [
     function: {
       name: "list_masters",
       description:
-        "Получить список активных мастеров. Если указать serviceId — вернутся только подходящие.",
+        "Получить активных мастеров. Если клиент назвал имя или часть имени — передай его в `nameQuery`, и вернутся подходящие. Если указать serviceId — отфильтруется по услуге.",
       parameters: {
         type: "object",
         properties: {
-          serviceId: { type: "string", description: "ID услуги для фильтра (опционально)" },
+          serviceId: { type: "string", description: "ID услуги (опционально)" },
+          nameQuery: {
+            type: "string",
+            description:
+              "Часть имени или фамилии для поиска (кейс-нечувствительный, любая подстрока). Например 'айгерим' найдёт 'Айгерим Нурланова'.",
+          },
         },
       },
     },
@@ -71,16 +76,16 @@ export const TOOLS: ToolDefinition[] = [
     function: {
       name: "create_booking",
       description:
-        "Создать запись на процедуру. Используй ТОЛЬКО когда клиент явно подтвердил услугу, мастера, дату+время, и дал имя+телефон.",
+        "СОЗДАЁТ запись клиента в БД. Вызывай как только все 6 параметров известны — НЕ переспрашивай 'подтвердить?'. Возвращает ok=true и подтверждение либо ok=false с причиной (slot_taken / master_off).",
       parameters: {
         type: "object",
         properties: {
-          serviceId: { type: "string", description: "ID услуги" },
-          masterId: { type: "string", description: "ID мастера" },
+          serviceId: { type: "string", description: "ID услуги (точно как в list_services)" },
+          masterId: { type: "string", description: "ID мастера (точно как в list_masters)" },
           date: { type: "string", description: "Дата YYYY-MM-DD" },
           time: { type: "string", description: "Время HH:MM (24h)" },
-          customerName: { type: "string", description: "Имя клиента (как обращаться)" },
-          customerPhone: { type: "string", description: "Телефон в формате +7XXXXXXXXXX" },
+          customerName: { type: "string", description: "Имя клиента" },
+          customerPhone: { type: "string", description: "Телефон, начинающийся с +7" },
         },
         required: ["serviceId", "masterId", "date", "time", "customerName", "customerPhone"],
       },
@@ -125,11 +130,38 @@ export async function executeTool(
           where: { id: String(args.serviceId) },
         });
         if (svc) {
-          filtered = masters.filter(
+          filtered = filtered.filter(
             (m) =>
               (m.specs as string[]).includes(svc.category) ||
               (m.specs as string[]).includes("all"),
           );
+        }
+      }
+      if (args.nameQuery) {
+        const q = String(args.nameQuery).trim().toLowerCase();
+        if (q.length >= 2) {
+          // Build lightweight character-bigram set for tolerant matching of mistranscribed names.
+          const bigrams = (s: string) => {
+            const t = s.toLowerCase();
+            const out = new Set<string>();
+            for (let i = 0; i < t.length - 1; i += 1) out.add(t.slice(i, i + 2));
+            return out;
+          };
+          const qb = bigrams(q);
+          const score = (s: string) => {
+            const lower = s.toLowerCase();
+            if (lower.includes(q)) return 1; // direct substring
+            const sb = bigrams(lower);
+            let common = 0;
+            for (const g of qb) if (sb.has(g)) common += 1;
+            return common / Math.max(1, qb.size);
+          };
+          const ranked = filtered
+            .map((m) => ({ m, s: Math.max(score(m.name), score(m.role)) }))
+            .sort((a, b) => b.s - a.s)
+            .filter((x) => x.s >= 0.4) // tolerate Whisper typos
+            .map((x) => x.m);
+          if (ranked.length > 0) filtered = ranked;
         }
       }
       return JSON.stringify(

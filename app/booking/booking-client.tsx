@@ -18,6 +18,7 @@ import { CategoryFilter } from "@/components/service-card";
 import { Icon } from "@/components/icons";
 import { useCart } from "@/components/cart-store";
 import { submitBooking } from "../actions/booking";
+import { previewPromo } from "../actions/promo";
 
 const STEP_LABELS = ["Услуга", "Мастер", "Дата и время", "Контакты", "Готово"];
 
@@ -47,9 +48,33 @@ export function BookingClient({
     notes: "",
     notify: "sms",
   });
+  const [promoInput, setPromoInput] = useState("");
+  const [promoApplied, setPromoApplied] = useState<{ code: string; discount: number } | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+
+  // Re-validate promo whenever the service changes (price changed → discount may differ)
+  useEffect(() => {
+    setPromoApplied(null);
+    setPromoError(null);
+  }, [service?.id]);
+
+  async function applyPromo() {
+    setPromoError(null);
+    if (!service) {
+      setPromoError("Сначала выберите услугу");
+      return;
+    }
+    const r = await previewPromo(promoInput.trim(), service.price);
+    if (!r.ok) {
+      setPromoApplied(null);
+      setPromoError(r.error);
+      return;
+    }
+    setPromoApplied({ code: r.code, discount: r.discount });
+  }
 
   // AUDIT §3.3 — auto-skip step 0 if cart pre-filled service
   useEffect(() => {
@@ -77,6 +102,7 @@ export function BookingClient({
         masterId: master.id,
         date: day.iso,
         time,
+        promoCode: promoApplied?.code ?? "",
         contact: {
           name: contact.name,
           phone: contact.phone,
@@ -165,7 +191,22 @@ export function BookingClient({
                 onSelectTime={setTime}
               />
             ) : null}
-            {step === 3 ? <StepContact contact={contact} setContact={setContact} /> : null}
+            {step === 3 ? (
+              <StepContact
+                contact={contact}
+                setContact={setContact}
+                promoInput={promoInput}
+                setPromoInput={setPromoInput}
+                promoApplied={promoApplied}
+                promoError={promoError}
+                onApplyPromo={applyPromo}
+                onRemovePromo={() => {
+                  setPromoApplied(null);
+                  setPromoInput("");
+                  setPromoError(null);
+                }}
+              />
+            ) : null}
             {step === 4 && confirmed && service && master && day && time ? (
               <StepConfirmed
                 service={service}
@@ -373,7 +414,7 @@ function StepMaster({
               }}
             >
               <div
-                className="w-16 h-16 rounded-full flex items-center justify-center text-white text-[24px] font-serif"
+                className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-white text-[24px] font-serif shrink-0"
                 style={{
                   background: isAny
                     ? "linear-gradient(135deg, var(--gold-1), var(--gold-2))"
@@ -381,7 +422,19 @@ function StepMaster({
                 }}
                 aria-hidden="true"
               >
-                {isAny ? "✺" : initials}
+                {!isAny && m.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.avatarUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : isAny ? (
+                  "✺"
+                ) : (
+                  initials
+                )}
               </div>
               <div>
                 <div className="serif text-[16px] sm:text-[17px] font-medium">{m.name}</div>
@@ -499,9 +552,21 @@ function StepDateTime({
 function StepContact({
   contact,
   setContact,
+  promoInput,
+  setPromoInput,
+  promoApplied,
+  promoError,
+  onApplyPromo,
+  onRemovePromo,
 }: {
   contact: Contact;
   setContact: (c: Contact) => void;
+  promoInput: string;
+  setPromoInput: (s: string) => void;
+  promoApplied: { code: string; discount: number } | null;
+  promoError: string | null;
+  onApplyPromo: () => void;
+  onRemovePromo: () => void;
 }) {
   const set = <K extends keyof Contact>(k: K, v: Contact[K]) => setContact({ ...contact, [k]: v });
   return (
@@ -556,6 +621,49 @@ function StepContact({
             ))}
           </div>
         </div>
+
+        <div>
+          <div className="eyebrow mb-2">Промокод</div>
+          {promoApplied ? (
+            <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-md border border-green-300 bg-green-50">
+              <div>
+                <div className="font-mono font-medium text-[14px]">{promoApplied.code}</div>
+                <div className="text-[12px] text-green-900">
+                  Скидка: −{promoApplied.discount.toLocaleString("ru-RU")} ₸
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onRemovePromo}
+                className="text-[12px] text-ink-soft border-b border-ink-soft"
+              >
+                Удалить
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2 items-stretch">
+              <input
+                type="text"
+                value={promoInput}
+                onChange={(e) => setPromoInput(e.target.value)}
+                placeholder="Код"
+                className="flex-1 px-4 py-3 border border-line rounded-md bg-bg-0 text-[14px] uppercase outline-none focus:border-ink"
+              />
+              <button
+                type="button"
+                onClick={onApplyPromo}
+                disabled={!promoInput.trim()}
+                className="px-4 rounded-md border border-line text-[13px] hover:bg-bg-1 disabled:opacity-50"
+              >
+                Применить
+              </button>
+            </div>
+          )}
+          {promoError ? (
+            <div className="text-[12px] text-red-700 mt-2">{promoError}</div>
+          ) : null}
+        </div>
+
         <label className="flex items-start gap-2.5 text-[12px] text-ink-mute leading-snug mt-2">
           <input type="checkbox" defaultChecked className="mt-0.5" />
           <span>Согласен на обработку персональных данных и получение уведомлений о визите</span>

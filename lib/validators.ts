@@ -22,6 +22,7 @@ export const bookingSubmitSchema = z.object({
   masterId: z.string().min(1).max(64),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "YYYY-MM-DD"),
   time: z.string().regex(/^\d{2}:\d{2}$/, "HH:MM"),
+  promoCode: z.string().max(40).optional().default(""),
   contact: z.object({
     name: nameSchema,
     phone: phoneSchema,

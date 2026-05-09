@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { BookingActions } from "./booking-actions";
+import { BookingsTable, type BookingRow } from "./bookings-table";
 
 export const dynamic = "force-dynamic";
 
@@ -13,21 +13,6 @@ const STATUSES = [
   { id: "no_show", label: "Не пришли" },
 ];
 
-const STATUS_BADGE: Record<string, { bg: string; text: string; label: string }> = {
-  pending: { bg: "bg-yellow-100", text: "text-yellow-900", label: "ожидает" },
-  confirmed: { bg: "bg-green-100", text: "text-green-900", label: "подтверждено" },
-  completed: { bg: "bg-blue-100", text: "text-blue-900", label: "выполнено" },
-  cancelled: { bg: "bg-red-100", text: "text-red-900", label: "отменено" },
-  no_show: { bg: "bg-stone-200", text: "text-stone-700", label: "не пришёл" },
-};
-
-const RU_MONTHS = [
-  "янв", "фев", "мар", "апр", "май", "июн",
-  "июл", "авг", "сен", "окт", "ноя", "дек",
-];
-function fmtDay(d: Date): string {
-  return `${d.getUTCDate()} ${RU_MONTHS[d.getUTCMonth()]}`;
-}
 
 export default async function BookingsPage({
   searchParams,
@@ -134,140 +119,22 @@ export default async function BookingsPage({
         </div>
       </div>
 
-      {bookings.length === 0 ? (
-        <div className="bg-bg-0 border border-line rounded-xl py-16 px-6 text-center text-ink-mute">
-          Заявок не найдено.
-        </div>
-      ) : (
-        <>
-          {/* Mobile cards */}
-          <div className="md:hidden flex flex-col gap-3">
-            {bookings.map((b) => {
-              const badge = STATUS_BADGE[b.status] ?? {
-                bg: "bg-stone-100",
-                text: "text-stone-700",
-                label: b.status,
-              };
-              return (
-                <div
-                  key={b.id}
-                  className="bg-bg-0 border border-line rounded-lg p-4"
-                >
-                  <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                    <div className="font-mono text-[13px] font-medium">
-                      {fmtDay(b.slot.date)} · {b.slot.time}
-                    </div>
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-[11px] ${badge.bg} ${badge.text}`}
-                    >
-                      {badge.label}
-                    </span>
-                  </div>
-                  <div className="mt-2 font-medium leading-tight">
-                    {b.service.name}
-                  </div>
-                  <div className="text-[12px] text-ink-mute mt-0.5">
-                    {b.service.duration} мин · {b.master.name}
-                  </div>
-                  <div className="mt-2.5 pt-2.5 border-t border-line-soft">
-                    <div className="text-sm">{b.customer.name}</div>
-                    <a
-                      href={`tel:${b.customer.phone}`}
-                      className="text-[12px] text-ink-soft border-b border-ink-soft inline-block"
-                    >
-                      {b.customer.phone}
-                    </a>
-                    {b.customer.telegramUsername ? (
-                      <span className="text-[11px] text-ink-mute ml-2">
-                        @{b.customer.telegramUsername}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-2.5 pt-2.5 border-t border-line-soft flex items-center justify-between gap-3">
-                    <div className="serif text-[18px]">
-                      {b.priceSnapshot.toLocaleString("ru-RU")}
-                      <span className="text-[12px] text-ink-mute ml-0.5">₸</span>
-                      <span className="text-[10px] font-mono text-ink-mute ml-2 align-middle">
-                        {b.source}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <BookingActions id={b.id} status={b.status} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Desktop table */}
-          <div className="hidden md:block bg-bg-0 border border-line rounded-xl overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-bg-1 text-left font-mono text-[11px] uppercase tracking-wider text-ink-mute">
-                  <tr>
-                    <th className="px-4 py-3">Когда</th>
-                    <th className="px-4 py-3">Услуга</th>
-                    <th className="px-4 py-3">Мастер</th>
-                    <th className="px-4 py-3">Клиент</th>
-                    <th className="px-4 py-3 text-right">Стоимость</th>
-                    <th className="px-4 py-3">Статус</th>
-                    <th className="px-4 py-3 text-right">Действия</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bookings.map((b) => {
-                    const badge = STATUS_BADGE[b.status] ?? {
-                      bg: "bg-stone-100",
-                      text: "text-stone-700",
-                      label: b.status,
-                    };
-                    return (
-                      <tr key={b.id} className="border-t border-line-soft align-top">
-                        <td className="px-4 py-3 font-mono text-[12px]">
-                          {fmtDay(b.slot.date)}
-                          <br />
-                          <span className="text-ink-mute">{b.slot.time}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {b.service.name}
-                          <div className="text-[11px] text-ink-mute mt-0.5">
-                            {b.service.duration} мин
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-ink-soft">{b.master.name}</td>
-                        <td className="px-4 py-3">
-                          <div>{b.customer.name}</div>
-                          <div className="text-[12px] text-ink-mute">{b.customer.phone}</div>
-                          {b.customer.telegramUsername ? (
-                            <div className="text-[11px] text-ink-mute">@{b.customer.telegramUsername}</div>
-                          ) : null}
-                        </td>
-                        <td className="px-4 py-3 text-right font-mono">
-                          {b.priceSnapshot.toLocaleString("ru-RU")} ₸
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-block px-2 py-0.5 rounded-full text-[11px] ${badge.bg} ${badge.text}`}
-                          >
-                            {badge.label}
-                          </span>
-                          <div className="text-[10px] font-mono text-ink-mute mt-1">
-                            {b.source}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <BookingActions id={b.id} status={b.status} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
+      <BookingsTable
+        bookings={bookings.map<BookingRow>((b) => ({
+          id: b.id,
+          status: b.status,
+          source: b.source,
+          priceSnapshot: b.priceSnapshot,
+          service: { name: b.service.name, duration: b.service.duration },
+          master: { name: b.master.name },
+          customer: {
+            name: b.customer.name,
+            phone: b.customer.phone,
+            telegramUsername: b.customer.telegramUsername,
+          },
+          slot: { date: b.slot.date.toISOString(), time: b.slot.time },
+        }))}
+      />
     </div>
   );
 }

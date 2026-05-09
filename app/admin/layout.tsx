@@ -11,9 +11,13 @@ export const metadata: Metadata = {
 const NAV = [
   { href: "/admin", label: "Дашборд", exact: true },
   { href: "/admin/bookings", label: "Заявки" },
+  { href: "/admin/calendar", label: "Календарь" },
   { href: "/admin/services", label: "Услуги" },
   { href: "/admin/masters", label: "Мастера" },
   { href: "/admin/schedule", label: "Расписание" },
+  { href: "/admin/gallery", label: "Галерея" },
+  { href: "/admin/promotions", label: "Промокоды" },
+  { href: "/admin/reviews", label: "Отзывы" },
   { href: "/admin/settings", label: "Настройки" },
 ];
 
@@ -56,7 +60,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Mobile bar with hamburger sheet */}
       <AdminMobileNav logout={logoutButton} />
 
-      <main className="p-4 sm:p-6 lg:p-8 max-w-[1200px] w-full">{children}</main>
+      <main className="p-4 sm:p-6 lg:p-8 max-w-[1200px] w-full min-w-0 overflow-x-hidden">
+        {children}
+      </main>
     </div>
   );
 }

@@ -51,10 +51,24 @@ export default async function MasterLayout({ children }: { children: React.React
         <div className="font-mono text-[10px] tracking-[0.2em] text-bg-0/50 uppercase mb-6">
           кабинет мастера
         </div>
-        <div className="bg-bg-0/10 rounded-lg p-3 mb-6">
-          <div className="text-[11px] text-bg-0/60">Вы вошли как</div>
-          <div className="font-medium mt-0.5">{master.name}</div>
-          <div className="text-[12px] text-bg-0/60 mt-0.5">{master.role}</div>
+        <div className="bg-bg-0/10 rounded-lg p-3 mb-6 flex items-center gap-3">
+          <div
+            className="w-12 h-12 rounded-full overflow-hidden shrink-0 flex items-center justify-center text-bg-0 text-[18px] font-serif"
+            style={{ background: "linear-gradient(135deg, var(--wood-1), var(--wood-3))" }}
+            aria-hidden="true"
+          >
+            {master.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={master.avatarUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              master.name.split(" ").map((n) => n[0]).join("")
+            )}
+          </div>
+          <div className="min-w-0">
+            <div className="text-[11px] text-bg-0/60">Вы вошли как</div>
+            <div className="font-medium mt-0.5 truncate">{master.name}</div>
+            <div className="text-[12px] text-bg-0/60 mt-0.5 truncate">{master.role}</div>
+          </div>
         </div>
         <nav className="flex flex-col gap-1 flex-1">
           {NAV.map((item) => (
@@ -76,7 +90,9 @@ export default async function MasterLayout({ children }: { children: React.React
         logout={logoutButton}
       />
 
-      <main className="p-4 sm:p-6 lg:p-8 max-w-[1200px] w-full">{children}</main>
+      <main className="p-4 sm:p-6 lg:p-8 max-w-[1200px] w-full min-w-0 overflow-x-hidden">
+        {children}
+      </main>
     </div>
   );
 }

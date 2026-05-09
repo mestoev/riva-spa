@@ -29,6 +29,7 @@ export default async function BookingPage() {
         duration: s.duration,
         price: s.price,
         tag: s.tag,
+        imageUrl: s.imageUrl,
       }))}
       masters={masters.map((m) => ({
         id: m.id,
@@ -37,6 +38,7 @@ export default async function BookingPage() {
         exp: m.exp,
         specs: (m.specs as string[]) as never,
         rating: m.rating,
+        avatarUrl: m.avatarUrl,
       }))}
       categories={CATEGORIES}
       schedule={schedule.map((d) => ({

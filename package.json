@@ -16,7 +16,9 @@
     "db:studio": "prisma studio",
     "bot:client": "tsx bots/client/index.ts",
     "bot:admin": "tsx bots/admin/index.ts",
-    "bots:start": "tsx bots/run-all.ts"
+    "bots:start": "tsx bots/run-all.ts",
+    "backup": "tsx bin/backup.ts",
+    "reminders": "tsx bin/reminders.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

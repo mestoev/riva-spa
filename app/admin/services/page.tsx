@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { ToggleActive } from "./toggle-active";
+import { DeleteServiceButton } from "./delete-service-button";
 
 const CATEGORY_LABELS: Record<string, string> = {
   massage: "Массажи",
@@ -63,17 +64,20 @@ export default async function ServicesPage() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 pt-3 border-t border-line-soft flex items-center justify-between gap-3">
+                <div className="mt-3 pt-3 border-t border-line-soft flex items-center justify-between gap-3 flex-wrap">
                   <div className="flex items-center gap-2 text-[12px] text-ink-soft">
                     <ToggleActive id={s.id} active={s.active} />
                     <span>{s.active ? "активна" : "скрыта"}</span>
                   </div>
-                  <Link
-                    href={`/admin/services/${s.id}`}
-                    className="text-[13px] text-ink border-b border-ink"
-                  >
-                    Редактировать →
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <DeleteServiceButton id={s.id} name={s.name} active={s.active} />
+                    <Link
+                      href={`/admin/services/${s.id}`}
+                      className="text-[13px] text-ink border-b border-ink"
+                    >
+                      Изменить →
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}
@@ -118,12 +122,15 @@ export default async function ServicesPage() {
                         <ToggleActive id={s.id} active={s.active} />
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <Link
-                          href={`/admin/services/${s.id}`}
-                          className="text-[13px] text-ink-soft border-b border-ink-soft hover:text-ink"
-                        >
-                          Редактировать
-                        </Link>
+                        <div className="flex justify-end gap-3">
+                          <DeleteServiceButton id={s.id} name={s.name} active={s.active} />
+                          <Link
+                            href={`/admin/services/${s.id}`}
+                            className="text-[13px] text-ink-soft border-b border-ink-soft hover:text-ink"
+                          >
+                            Редактировать
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))}

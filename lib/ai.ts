@@ -42,7 +42,10 @@ export async function getAISettings() {
 }
 
 /** Build the system prompt with live business context. */
-async function buildSystemPrompt(settings: Awaited<ReturnType<typeof getAISettings>>): Promise<string> {
+async function buildSystemPrompt(
+  settings: Awaited<ReturnType<typeof getAISettings>>,
+  telegramId?: string | number,
+): Promise<string> {
   const services = await prisma.service.findMany({
     where: { active: true },
     orderBy: { sortOrder: "asc" },
@@ -95,6 +98,30 @@ async function buildSystemPrompt(settings: Awaited<ReturnType<typeof getAISettin
     parts.push(``, `## Дополнительная информация`, settings.customFacts);
   }
 
+  // If we know who's chatting — pre-load their phone/name so AI doesn't re-ask.
+  if (telegramId && /^\d+$/.test(String(telegramId))) {
+    try {
+      const customer = await prisma.customer.findFirst({
+        where: { telegramId: String(telegramId) },
+        orderBy: { updatedAt: "desc" },
+        select: { name: true, phone: true, bonusPoints: true },
+      });
+      if (customer) {
+        parts.push(
+          ``,
+          `## Известный клиент`,
+          `Этот пользователь уже записывался у нас. Используй эти данные если он подтверждает запись:`,
+          `- Имя: ${customer.name}`,
+          `- Телефон: ${customer.phone}`,
+          `- Бонусных баллов: ${customer.bonusPoints}`,
+          `Не спрашивай заново имя/телефон, если он не сказал что хочет записать другого человека.`,
+        );
+      }
+    } catch (err) {
+      console.warn("[ai] customer lookup failed:", err);
+    }
+  }
+
   parts.push(
     ``,
     `## Команды бота, на которые можно направлять клиента`,
@@ -125,20 +152,45 @@ export async function askAI(
     return null;
   }
 
-  const baseSystemPrompt = await buildSystemPrompt(settings);
-  // Add tool-use guidance on top of admin's prompt
+  const baseSystemPrompt = await buildSystemPrompt(settings, telegramId);
+  // Tool-use guidance — be explicit and pushy, otherwise the model
+  // tends to "describe" actions instead of calling them.
+  const today = new Date();
+  const todayIso = today.toISOString().slice(0, 10);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const tomorrowIso = tomorrow.toISOString().slice(0, 10);
+
   const systemPrompt = [
     baseSystemPrompt,
     ``,
-    `## Инструменты`,
-    `У тебя есть инструменты, чтобы реально записать клиента, не отправляя его никуда:`,
-    `- list_services — посмотреть услуги/цены`,
-    `- list_masters — посмотреть мастеров`,
-    `- find_free_slots — узнать свободные слоты у мастера на дату`,
-    `- create_booking — создать запись (вызывай ТОЛЬКО когда клиент подтвердил услугу, мастера, дату+время, и дал имя+телефон)`,
+    `## Сегодня и контекст времени`,
+    `Сегодня: ${todayIso}. Завтра: ${tomorrowIso}.`,
+    `Когда клиент говорит «завтра», «послезавтра», «в субботу» — переведи в YYYY-MM-DD и используй эту дату в инструментах.`,
     ``,
-    `Веди диалог естественно. Если клиент хочет записаться — собери у него услугу, дату/время, имя и телефон, проверь свободность через find_free_slots, и только потом вызывай create_booking. Если клиент уже знает что хочет — не задавай лишних вопросов.`,
-    `Сегодняшняя дата: ${new Date().toISOString().slice(0, 10)}.`,
+    `## Инструменты для реальных действий`,
+    `У тебя есть РАБОЧИЕ инструменты. ВЫЗЫВАЙ ИХ, не описывай.`,
+    `- list_services — список услуг/цен (вызывай когда клиент спрашивает про цены)`,
+    `- list_masters — мастера (вызывай когда нужно выбрать мастера)`,
+    `- find_free_slots — свободные слоты (вызывай чтобы узнать когда мастер свободен)`,
+    `- create_booking — СОЗДАЁТ запись в БД (это финальный шаг)`,
+    ``,
+    `## Алгоритм для записи`,
+    `Если клиент хочет записаться:`,
+    `1. Если он не назвал услугу — вызови list_services и предложи варианты.`,
+    `2. Если назвал имя мастера ("к Айгерим", "к Ержану") — вызови list_masters с nameQuery="айгерим" чтобы найти его ID.`,
+    `   Голосовые сообщения часто транскрибируются с искажениями (Айгерим может стать "Айгером") — `,
+    `   tool сам делает терпимый поиск, передавай как услышал.`,
+    `   Если мастера не назвал — вызови list_masters с serviceId и предложи или выбери "any".`,
+    `3. Если не назвал дату/время — вызови find_free_slots на нужную дату.`,
+    `4. Когда у тебя ЕСТЬ: услуга, мастер, дата, время, имя, телефон → СРАЗУ вызови create_booking.`,
+    `   НЕ переспрашивай "точно записываем?". Создавай и сообщай результат.`,
+    `5. Телефон нормализуй в формат +7XXXXXXXXXX (если клиент сказал 8-707-..., замени 8 на +7).`,
+    ``,
+    `Если в одном сообщении клиент дал ВСЁ нужное (например: "запиши меня на завтра в 14:00 на массаж, я Заур, +77027995522") — `,
+    `вызывай инструменты подряд: find_free_slots → create_booking. Не задавай лишних вопросов.`,
+    ``,
+    `Если каких-то данных не хватает (например, нет телефона) — задай ОДИН короткий вопрос про недостающее и жди.`,
   ].join("\n");
 
   const messages: AIMessage[] = [
@@ -208,7 +260,11 @@ export async function askAI(
           } catch {
             /* keep empty */
           }
+          console.log(
+            `[ai] tool=${call.function.name} args=${JSON.stringify(argsObj).slice(0, 200)}`,
+          );
           const out = await executeTool(call.function.name, argsObj, telegramId);
+          console.log(`[ai] tool=${call.function.name} result=${out.slice(0, 200)}`);
           messages.push({
             role: "tool",
             tool_call_id: call.id,

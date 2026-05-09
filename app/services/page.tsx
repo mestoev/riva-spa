@@ -26,6 +26,7 @@ export default async function ServicesPage() {
     duration: s.duration,
     price: s.price,
     tag: s.tag,
+    imageUrl: s.imageUrl,
   }));
   return <ServicesPageClient services={mapped} categories={CATEGORIES} />;
 }

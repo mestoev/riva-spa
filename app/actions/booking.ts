@@ -13,6 +13,8 @@
 import { prisma } from "@/lib/db";
 import { bookingSubmitSchema, type BookingSubmitInput } from "@/lib/validators";
 import { htmlEscape, notifyAdmins } from "@/lib/telegram";
+import { rateLimit } from "@/lib/ratelimit";
+import { validatePromo, consumePromo } from "@/lib/promo";
 import type { BookingSource } from "@prisma/client";
 
 export type BookingResult =
@@ -34,6 +36,18 @@ export async function submitBooking(
   }
   const data = parsed.data;
 
+  // Rate-limit by phone — 5 booking attempts per hour from one phone
+  const rl = rateLimit(`booking:${data.contact.phone}`, {
+    limit: 5,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!rl.ok) {
+    return {
+      ok: false,
+      error: "Слишком много попыток. Попробуйте через час или позвоните нам.",
+    };
+  }
+
   // Pull service to snapshot price + verify it exists / is active
   const service = await prisma.service.findUnique({ where: { id: data.serviceId } });
   if (!service || !service.active) {
@@ -43,6 +57,18 @@ export async function submitBooking(
   const master = await prisma.master.findUnique({ where: { id: data.masterId } });
   if (!master || !master.active) {
     return { ok: false, error: "Мастер недоступен", field: "masterId" };
+  }
+
+  // Validate promo (if provided) BEFORE transaction so we know the discount.
+  let discount = 0;
+  let promoCodeStr: string | null = null;
+  let promoId: number | null = null;
+  if (data.promoCode && data.promoCode.trim()) {
+    const r = await validatePromo(data.promoCode, service.price);
+    if (!r.ok) return { ok: false, error: r.error, field: "promoCode" };
+    discount = r.discount;
+    promoCodeStr = r.code;
+    promoId = r.promoId;
   }
 
   try {
@@ -113,15 +139,19 @@ export async function submitBooking(
           notes: data.contact.notes || null,
           notify: data.contact.notify,
           priceSnapshot: service.price,
+          promoCode: promoCodeStr,
+          discount,
         },
       });
+
+      if (promoId) await consumePromo(tx, promoId);
 
       await tx.adminEvent.create({
         data: {
           bookingId: booking.id,
           actor: "system",
           action: "created",
-          payload: { source },
+          payload: { source, promoCode: promoCodeStr, discount },
         },
       });
 
@@ -130,11 +160,15 @@ export async function submitBooking(
 
     // Fire-and-forget admin notification — don't block the response.
     // bookingId attaches inline confirm/cancel buttons.
+    const finalTotal = service.price - discount;
     void notifyAdmins(
       [
         `🆕 <b>Новая запись</b>`,
         ``,
         `<b>Услуга:</b> ${htmlEscape(service.name)} · ${service.price.toLocaleString("ru-RU")} ₸`,
+        promoCodeStr
+          ? `<b>Промокод:</b> ${htmlEscape(promoCodeStr)} · −${discount.toLocaleString("ru-RU")} ₸ → итого ${finalTotal.toLocaleString("ru-RU")} ₸`
+          : ``,
         `<b>Мастер:</b> ${htmlEscape(master.name)}`,
         `<b>Когда:</b> ${data.date} ${data.time}`,
         ``,

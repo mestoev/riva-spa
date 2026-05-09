@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 import type { Master } from "@prisma/client";
 import { createMaster, updateMaster, type MasterFormState } from "./actions";
+import { ImageUpload } from "@/components/image-upload";
 
 const SPECS = [
   { id: "massage", label: "Массажи" },
@@ -36,6 +37,7 @@ export function MasterForm({ master }: { master?: Master }) {
         placeholder="m1, anna, ivan"
       />
       <Field label="Имя" name="name" defaultValue={master?.name} required />
+      <ImageUpload name="avatarUrl" defaultValue={master?.avatarUrl} label="Аватар мастера" aspect="square" />
       <Field
         label="Должность / роль"
         name="role"

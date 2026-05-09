@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { ToggleActive } from "./toggle-active";
 import { ResetPasswordButton } from "./reset-password-button";
+import { DeleteMasterButton } from "./delete-master-button";
 import { clearCredsFlash } from "./actions";
 
 const FLASH_COOKIE = "master_creds";
@@ -97,7 +98,19 @@ export default async function MastersPage() {
                   m.active ? "" : "opacity-60"
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div
+                    className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-white text-[16px] font-serif shrink-0"
+                    style={{ background: "linear-gradient(135deg, var(--wood-1), var(--wood-3))" }}
+                    aria-hidden="true"
+                  >
+                    {m.avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={m.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      m.name.split(" ").map((n) => n[0]).join("")
+                    )}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="font-medium leading-tight">{m.name}</div>
                     <div className="text-[12px] text-ink-soft mt-0.5">{m.role}</div>
@@ -122,6 +135,7 @@ export default async function MastersPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <ResetPasswordButton id={m.id} />
+                    <DeleteMasterButton id={m.id} name={m.name} active={m.active} />
                     <Link
                       href={`/admin/masters/${m.id}`}
                       className="text-[13px] text-ink border-b border-ink"
@@ -156,9 +170,25 @@ export default async function MastersPage() {
                       className={`border-t border-line-soft ${m.active ? "" : "opacity-50"}`}
                     >
                       <td className="px-4 py-3">
-                        <div className="font-medium">{m.name}</div>
-                        <div className="text-[12px] text-ink-soft">{m.role}</div>
-                        <div className="text-[11px] font-mono text-ink-mute">{m.id}</div>
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center text-white text-[13px] font-serif shrink-0"
+                            style={{ background: "linear-gradient(135deg, var(--wood-1), var(--wood-3))" }}
+                            aria-hidden="true"
+                          >
+                            {m.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={m.avatarUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              m.name.split(" ").map((n) => n[0]).join("")
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-medium leading-tight">{m.name}</div>
+                            <div className="text-[12px] text-ink-soft">{m.role}</div>
+                            <div className="text-[11px] font-mono text-ink-mute">{m.id}</div>
+                          </div>
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-ink-soft">{m.exp}</td>
                       <td className="px-4 py-3 text-ink-soft text-[12px]">
@@ -176,6 +206,7 @@ export default async function MastersPage() {
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-3">
                           <ResetPasswordButton id={m.id} />
+                          <DeleteMasterButton id={m.id} name={m.name} active={m.active} />
                           <Link
                             href={`/admin/masters/${m.id}`}
                             className="text-[13px] text-ink-soft border-b border-ink-soft hover:text-ink"

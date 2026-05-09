@@ -447,7 +447,25 @@ bot.on("message:text", async (ctx) => {
     return;
   }
 
-  // 2) No active flow → ask the AI assistant.
+  // 2) Pending review text from previous step
+  const pendingReviewId = pendingReviewByUser.get(userId);
+  if (pendingReviewId) {
+    pendingReviewByUser.delete(userId);
+    const text = ctx.message.text.trim();
+    if (text.length >= 3) {
+      const review = await prisma.review.findFirst({ where: { bookingId: pendingReviewId } });
+      if (review) {
+        await prisma.review.update({
+          where: { id: review.id },
+          data: { text },
+        });
+        await ctx.reply("Спасибо! Отзыв сохранён 💙");
+        return;
+      }
+    }
+  }
+
+  // 3) No active flow → ask the AI assistant.
   await handleAIMessage(ctx);
 });
 
@@ -651,6 +669,8 @@ async function finalizeBooking(
 
     const day = (await getSchedule(14)).find((d) => d.iso === s.dayIso)!;
     const priceSnapshot = result.booking.priceSnapshot;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
+    const icsUrl = siteUrl ? `${siteUrl}/api/bookings/${result.booking.id}/ics` : null;
 
     await ctx.reply(
       [
@@ -661,12 +681,16 @@ async function finalizeBooking(
         `<b>Когда:</b> ${fmtDayFull(day.date)}, ${s.time}`,
         `<b>Стоимость:</b> ${fmtPrice(priceSnapshot)}`,
         ``,
-        `Администратор подтвердит запись в течение нескольких минут — придёт отдельное сообщение.`,
+        `Администратор подтвердит запись в течение нескольких минут.`,
         `Адрес: ул. Загородная 17, Актобе.`,
-      ].join("\n"),
+        icsUrl ? `\n📅 <a href="${icsUrl}">Добавить в календарь</a>` : ``,
+      ]
+        .filter(Boolean)
+        .join("\n"),
       {
         parse_mode: "HTML",
         reply_markup: { remove_keyboard: true },
+        link_preview_options: { is_disabled: true },
       },
     );
 
@@ -830,21 +854,165 @@ async function showMyBookings(ctx: Context) {
     await ctx.reply("Активных записей нет. Записаться — /book.");
     return;
   }
-  const lines = bookings.map((b) => {
+  await ctx.reply(`<b>Ваши записи · ${bookings.length}</b>`, { parse_mode: "HTML" });
+
+  for (const b of bookings) {
     const d = b.slot.date;
-    // If TG user booked for several customers, show whose record this is
     const sharedTg = customers.length > 1;
-    return [
+    const text = [
       `📅 <b>${fmtDayFull(d)}, ${b.slot.time}</b>`,
       `${htmlEscape(b.service.name)} · ${htmlEscape(b.master.name)}`,
-      `${fmtPrice(b.priceSnapshot)} · статус: ${b.status === "pending" ? "ожидает подтверждения" : "подтверждено"}`,
+      `${fmtPrice(b.priceSnapshot - b.discount)} · статус: ${b.status === "pending" ? "ожидает подтверждения" : "подтверждено"}`,
       sharedTg ? `Клиент: ${htmlEscape(b.customer.name)}` : "",
     ]
       .filter(Boolean)
       .join("\n");
-  });
-  await ctx.reply(lines.join("\n\n"), { parse_mode: "HTML" });
+
+    // Compute hours until appointment to know if cancel is still allowed
+    const apptDate = new Date(b.slot.date);
+    const [hh, mm] = b.slot.time.split(":").map(Number);
+    apptDate.setUTCHours(hh - 5, mm, 0, 0); // Aqtobe → UTC
+    const hoursUntil = (apptDate.getTime() - Date.now()) / (60 * 60 * 1000);
+
+    const kb = new InlineKeyboard();
+    if (hoursUntil > 6) {
+      kb.text("❌ Отменить", `cli:cancel:${b.id}`);
+    }
+    kb.text("📅 В календарь", "cli:ics:disabled"); // We'll handle below
+
+    await ctx.reply(text, {
+      parse_mode: "HTML",
+      reply_markup: kb,
+      link_preview_options: { is_disabled: true },
+    });
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+    if (siteUrl) {
+      // Send a separate message with the .ics link as a tappable preview
+      await ctx
+        .reply(`📥 ${siteUrl}/api/bookings/${b.id}/ics`, {
+          link_preview_options: { is_disabled: true },
+        })
+        .catch(() => null);
+    }
+  }
 }
+
+// Cancel callback for client
+bot.callbackQuery(/^cli:cancel:(.+)$/, async (ctx) => {
+  const userId = ctx.from?.id;
+  const id = ctx.match![1];
+  if (!userId) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  const booking = await prisma.booking.findUnique({
+    where: { id },
+    include: { customer: true, slot: true, service: true, master: true },
+  });
+  if (!booking) {
+    await ctx.answerCallbackQuery({ text: "Запись не найдена", show_alert: true });
+    return;
+  }
+  // Verify ownership
+  if (booking.customer.telegramId !== String(userId)) {
+    await ctx.answerCallbackQuery({ text: "Это не ваша запись", show_alert: true });
+    return;
+  }
+  if (booking.status !== "pending" && booking.status !== "confirmed") {
+    await ctx.answerCallbackQuery({ text: "Уже отменена или прошла", show_alert: true });
+    return;
+  }
+  // 6h policy
+  const apptDate = new Date(booking.slot.date);
+  const [hh, mm] = booking.slot.time.split(":").map(Number);
+  apptDate.setUTCHours(hh - 5, mm, 0, 0);
+  if ((apptDate.getTime() - Date.now()) / (60 * 60 * 1000) <= 6) {
+    await ctx.answerCallbackQuery({
+      text: "Отменить можно не позже чем за 6 часов",
+      show_alert: true,
+    });
+    return;
+  }
+
+  await prisma.booking.update({
+    where: { id },
+    data: { status: "cancelled" },
+  });
+  await prisma.adminEvent.create({
+    data: { bookingId: id, actor: `tg-client:${userId}`, action: "cancelled" },
+  });
+
+  await ctx.answerCallbackQuery({ text: "Отменено" });
+  try {
+    await ctx.editMessageText(
+      `❌ <b>Запись отменена</b>\n\n${htmlEscape(booking.service.name)}\n${fmtDayFull(booking.slot.date)}, ${booking.slot.time}`,
+      { parse_mode: "HTML" },
+    );
+  } catch {
+    /* ignore */
+  }
+  await notifyAdmins(
+    [
+      `🚫 <b>Клиент отменил запись</b>`,
+      ``,
+      `${htmlEscape(booking.service.name)} · ${htmlEscape(booking.master.name)}`,
+      `Когда: ${fmtDayFull(booking.slot.date)}, ${booking.slot.time}`,
+      `Клиент: ${htmlEscape(booking.customer.name)} · ${htmlEscape(booking.customer.phone)}`,
+    ].join("\n"),
+  );
+});
+
+// Review collection — user clicks a star button after completed visit
+bot.callbackQuery(/^cli:review:([^:]+):(\d)$/, async (ctx) => {
+  const userId = ctx.from?.id;
+  const bookingId = ctx.match![1];
+  const rating = Number(ctx.match![2]);
+  if (!userId || rating < 1 || rating > 5) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { customer: true },
+  });
+  if (!booking || booking.customer.telegramId !== String(userId)) {
+    await ctx.answerCallbackQuery({ text: "Запись не найдена", show_alert: true });
+    return;
+  }
+  // Upsert review (one per booking)
+  const existing = await prisma.review.findFirst({ where: { bookingId } });
+  if (existing) {
+    await prisma.review.update({
+      where: { id: existing.id },
+      data: { rating },
+    });
+  } else {
+    await prisma.review.create({
+      data: {
+        customerId: booking.customerId,
+        bookingId: booking.id,
+        serviceId: booking.serviceId,
+        masterId: booking.masterId,
+        rating,
+        text: "",
+      },
+    });
+  }
+  await ctx.answerCallbackQuery({ text: "Спасибо!" });
+  try {
+    await ctx.editMessageText(
+      `Спасибо за оценку! ${"⭐".repeat(rating)}\n\nЕсли хотите дополнить — просто напишите следующим сообщением, и мы добавим к отзыву.`,
+    );
+  } catch {
+    /* ignore */
+  }
+  // Mark a hint so the next text message becomes the review text
+  pendingReviewByUser.set(userId, bookingId);
+});
+
+// Map: tg userId → bookingId waiting for free-form review text
+const pendingReviewByUser = new Map<number, string>();
 
 // ===== Notify admins helper (mirror of lib/telegram.ts notifyAdmins) =====
 // We can't import the Next.js server lib from here without bundler help,

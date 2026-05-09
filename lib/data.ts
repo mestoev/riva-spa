@@ -12,6 +12,7 @@ export type Service = {
   duration: number; // minutes
   price: number; // KZT
   tag: string | null;
+  imageUrl?: string | null;
 };
 
 export type Master = {
@@ -21,6 +22,7 @@ export type Master = {
   exp: string;
   specs: (ServiceCat | "all")[];
   rating: number | null;
+  avatarUrl?: string | null;
 };
 
 export type Category = { id: ServiceCat | "all"; label: string };

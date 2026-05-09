@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 import type { Service } from "@prisma/client";
 import { createService, updateService, type ServiceFormState } from "./actions";
+import { ImageUpload } from "@/components/image-upload";
 
 const CATEGORIES = [
   { id: "massage", label: "Массажи" },
@@ -44,6 +45,7 @@ export function ServiceForm({ service }: { service?: Service }) {
       </div>
       <Field label="Название" name="name" defaultValue={service?.name} required />
       <TextArea label="Описание" name="desc" defaultValue={service?.desc} required />
+      <ImageUpload name="imageUrl" defaultValue={service?.imageUrl} label="Фото услуги" aspect="wide" />
       <div className="grid gap-5 sm:grid-cols-3">
         <Field
           label="Цена, ₸"

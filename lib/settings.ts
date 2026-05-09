@@ -2,6 +2,8 @@
 // Used by sidebar/footer/contact page/layout metadata + Telegram bots.
 import { prisma } from "./db";
 
+export type FAQItem = { q: string; a: string };
+
 export type SiteSettings = {
   id: number;
   name: string;
@@ -19,6 +21,8 @@ export type SiteSettings = {
   hoursFriSun: string;
   metaTitle: string;
   metaDescription: string;
+  mapEmbedUrl: string;
+  faq: FAQItem[];
 };
 
 /**
@@ -29,6 +33,17 @@ export async function getSiteSettings(): Promise<SiteSettings> {
   let row = await prisma.siteSettings.findFirst();
   if (!row) {
     row = await prisma.siteSettings.create({ data: {} });
+  }
+  let faq: FAQItem[] = [];
+  try {
+    const parsed = JSON.parse(row.faqJson || "[]");
+    if (Array.isArray(parsed)) {
+      faq = parsed
+        .filter((x): x is FAQItem => x && typeof x.q === "string" && typeof x.a === "string")
+        .slice(0, 30);
+    }
+  } catch {
+    /* ignore */
   }
   return {
     id: row.id,
@@ -46,5 +61,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     hoursFriSun: row.hoursFriSun,
     metaTitle: row.metaTitle,
     metaDescription: row.metaDescription,
+    mapEmbedUrl: row.mapEmbedUrl ?? "",
+    faq,
   };
 }

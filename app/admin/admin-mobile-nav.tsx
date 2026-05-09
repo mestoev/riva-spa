@@ -7,9 +7,13 @@ import { useEffect, useId, useRef, useState } from "react";
 const NAV = [
   { href: "/admin", label: "Дашборд", exact: true },
   { href: "/admin/bookings", label: "Заявки" },
+  { href: "/admin/calendar", label: "Календарь" },
   { href: "/admin/services", label: "Услуги" },
   { href: "/admin/masters", label: "Мастера" },
   { href: "/admin/schedule", label: "Расписание" },
+  { href: "/admin/gallery", label: "Галерея" },
+  { href: "/admin/promotions", label: "Промокоды" },
+  { href: "/admin/reviews", label: "Отзывы" },
   { href: "/admin/settings", label: "Настройки" },
 ];
 

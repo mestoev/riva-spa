@@ -20,6 +20,7 @@ const serviceSchema = z.object({
   duration: z.coerce.number().int().min(5).max(720),
   price: z.coerce.number().int().min(0).max(99_999_999),
   tag: z.string().max(40).optional().nullable(),
+  imageUrl: z.string().max(500).optional().nullable(),
   active: z.coerce.boolean(),
   sortOrder: z.coerce.number().int().default(0),
 });
@@ -38,6 +39,7 @@ function parseFromFormData(fd: FormData) {
     duration: fd.get("duration"),
     price: fd.get("price"),
     tag: (fd.get("tag") as string)?.trim() || null,
+    imageUrl: (fd.get("imageUrl") as string)?.trim() || null,
     active: fd.get("active") === "on" || fd.get("active") === "true",
     sortOrder: fd.get("sortOrder") ?? 0,
   };
@@ -81,6 +83,7 @@ export async function updateService(
         duration: parsed.data.duration,
         price: parsed.data.price,
         tag: parsed.data.tag,
+        imageUrl: parsed.data.imageUrl,
         active: parsed.data.active,
         sortOrder: parsed.data.sortOrder,
       },
@@ -101,10 +104,28 @@ export async function toggleServiceActive(id: string, next: boolean) {
   revalidatePath("/");
 }
 
-export async function deleteService(id: string) {
-  // Soft-delete by setting active=false. Hard-delete would orphan past bookings.
-  await prisma.service.update({ where: { id }, data: { active: false } });
+/**
+ * Permanently delete a service. Refuses if any bookings reference it —
+ * caller should fall back to soft-hide (active=false) in that case.
+ */
+export async function deleteService(
+  id: string,
+): Promise<{ ok: true } | { ok: false; reason: "has_bookings" | "not_found" | "error"; usedIn?: number }> {
+  const service = await prisma.service.findUnique({ where: { id } });
+  if (!service) return { ok: false, reason: "not_found" };
+
+  const usedIn = await prisma.booking.count({ where: { serviceId: id } });
+  if (usedIn > 0) {
+    return { ok: false, reason: "has_bookings", usedIn };
+  }
+  try {
+    await prisma.service.delete({ where: { id } });
+  } catch (err) {
+    console.error("[deleteService]", err);
+    return { ok: false, reason: "error" };
+  }
   revalidatePath("/admin/services");
   revalidatePath("/services");
   revalidatePath("/");
+  return { ok: true };
 }

@@ -31,6 +31,7 @@ model Service {
   duration  Int // minutes
   price     Int // KZT (integer tenge)
   tag       String?
+  imageUrl  String?
   active    Boolean         @default(true)
   sortOrder Int             @default(0)
   bookings  Booking[]
@@ -49,6 +50,7 @@ model Master {
   rating    Float?
   // Specialties — list of ServiceCategory values OR "all"
   specs     String[]
+  avatarUrl String?
   active    Boolean  @default(true)
   sortOrder Int      @default(0)
 
@@ -127,6 +129,7 @@ model Customer {
   bookings Booking[]
   contacts ContactRequest[]
   bonusTx  BonusTransaction[]
+  reviews  Review[]
 
   // Cached counter — sum of bonus_transactions.points for this customer.
   // Always rebuildable from the ledger.
@@ -212,15 +215,51 @@ model Booking {
   notify       String         @default("sms") // sms | whatsapp | call | telegram
   // Snapshot price at booking time (services.price may change later)
   priceSnapshot Int
+  // Promo discount applied at booking time
+  promoCode    String?
+  discount     Int            @default(0)
+
+  // Reminder bookkeeping — set when we send a notification, so we don't double-send
+  remind24SentAt DateTime?
+  remind2SentAt  DateTime?
+  reviewRequestSentAt DateTime?
 
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
   events       AdminEvent[]
+  reviews      Review[]
 
   @@index([status])
   @@index([createdAt])
   @@map("bookings")
+}
+
+// ==========================================================
+// REVIEWS — клиент оставляет оценку после визита
+// ==========================================================
+
+model Review {
+  id         Int       @id @default(autoincrement())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  bookingId  String?
+  booking    Booking?  @relation(fields: [bookingId], references: [id])
+  serviceId  String?
+  masterId   String?
+
+  rating     Int       // 1..5
+  text       String    @default("")
+  // Owner approves before showing on the public site
+  approved   Boolean   @default(false)
+  // Hide from site without deleting
+  hidden     Boolean   @default(false)
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([approved, createdAt])
+  @@map("reviews")
 }
 
 // ==========================================================
@@ -269,6 +308,24 @@ model AdminUser {
 }
 
 // ==========================================================
+// GALLERY — photos shown on /gallery and the home strip
+// ==========================================================
+
+model GalleryImage {
+  id        Int     @id @default(autoincrement())
+  title     String
+  subtitle  String?
+  imageUrl  String
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("gallery_images")
+}
+
+// ==========================================================
 // SITE SETTINGS — editable contacts, hours, meta. Single-row config.
 // ==========================================================
 
@@ -287,10 +344,44 @@ model SiteSettings {
   hoursFriSun     String   @default("09:00 — 00:00")
   metaTitle       String   @default("RIVA POOL SPA — Тишина у воды")
   metaDescription String   @default("Бассейн на террасе, банный комплекс и СПА в приватной обстановке. Актобе.")
+  // Map embed iframe URL (from 2gis.kz / yandex.kz/maps "Поделиться → Код для вставки")
+  mapEmbedUrl     String   @default("")
+  // FAQ entries — JSON array [{q, a}]
+  faqJson         String   @default("[]")
 
   updatedAt DateTime @updatedAt
 
   @@map("site_settings")
+}
+
+// ==========================================================
+// PROMO CODES
+// ==========================================================
+
+enum PromoType {
+  percent
+  amount
+}
+
+model PromoCode {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique // e.g. "RIVA10"
+  type        PromoType @default(percent)
+  // For percent: 0..100; for amount: KZT
+  value       Int
+  // Minimum total to apply (0 = no minimum)
+  minTotal    Int       @default(0)
+  // Optional expiry
+  expiresAt   DateTime?
+  // 0 = unlimited
+  usageLimit  Int       @default(0)
+  usageCount  Int       @default(0)
+  active      Boolean   @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("promo_codes")
 }
 
 // ==========================================================

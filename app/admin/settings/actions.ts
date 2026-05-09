@@ -18,6 +18,8 @@ const settingsSchema = z.object({
   hoursFriSun: z.string().min(1).max(60),
   metaTitle: z.string().min(1).max(200),
   metaDescription: z.string().min(1).max(400),
+  mapEmbedUrl: z.string().max(2000).default(""),
+  faqJson: z.string().max(20000).default("[]"),
 });
 
 export type SettingsState = { ok: true } | { ok: false; error: string } | null;
@@ -27,7 +29,7 @@ export async function saveSettings(_p: SettingsState, fd: FormData): Promise<Set
   for (const k of [
     "name", "tagline", "city", "addressLine", "phone", "phoneRaw", "email",
     "instagram", "telegramBotUrl", "hoursMonThu", "hoursFriSun",
-    "metaTitle", "metaDescription",
+    "metaTitle", "metaDescription", "mapEmbedUrl", "faqJson",
   ]) {
     obj[k] = String(fd.get(k) ?? "").trim();
   }

@@ -13,7 +13,15 @@
 import Link from "next/link";
 import { Icon } from "./icons";
 import { ServiceCard } from "./service-card";
-import { GALLERY, REVIEWS, type Service } from "@/lib/data";
+import { REVIEWS, type Service } from "@/lib/data";
+
+export type GalleryItemLike = {
+  id: string;
+  title: string;
+  subtitle: string;
+  tone: "pool" | "wood" | "cream";
+  imageUrl?: string | null;
+};
 
 export function Hero() {
   return (
@@ -308,7 +316,7 @@ export function PoolFeature() {
   );
 }
 
-export function GalleryStrip() {
+export function GalleryStrip({ items }: { items: GalleryItemLike[] }) {
   return (
     <section className="pb-16 sm:pb-24 lg:pb-32">
       <div className="container-x">
@@ -329,7 +337,7 @@ export function GalleryStrip() {
             className="text-[13px] text-ink border-b border-ink pb-1
                        inline-flex items-center gap-2"
           >
-            Смотреть все · {GALLERY.length}
+            Смотреть все · {items.length}
             <Icon.arrow style={{ width: 14, height: 14 }} />
           </Link>
         </div>
@@ -339,7 +347,7 @@ export function GalleryStrip() {
                      grid-cols-2 sm:grid-cols-3 lg:grid-cols-6
                      auto-rows-[180px] sm:auto-rows-[200px] lg:auto-rows-[220px]"
         >
-          {GALLERY.map((g, i) => {
+          {items.slice(0, 6).map((g, i) => {
             const lgSpan = [
               "lg:col-span-3 lg:row-span-2",
               "lg:col-span-2",
@@ -356,20 +364,31 @@ export function GalleryStrip() {
                 className={`relative rounded-lg overflow-hidden border border-line
                             ${lgSpan[i] ?? "lg:col-span-2"}`}
                 style={{
-                  background:
-                    g.tone === "pool"
+                  background: g.imageUrl
+                    ? "var(--bg-2)"
+                    : g.tone === "pool"
                       ? "linear-gradient(135deg, var(--pool-1), var(--pool-3))"
                       : g.tone === "wood"
                         ? "linear-gradient(135deg, var(--wood-1), var(--wood-3))"
                         : "linear-gradient(135deg, var(--bg-1), var(--bg-2))",
-                  color: g.tone === "cream" ? "var(--ink)" : "white",
+                  color: g.tone === "cream" && !g.imageUrl ? "var(--ink)" : "white",
                 }}
               >
+                {g.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={g.imageUrl}
+                    alt={g.title}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : null}
                 <div
                   className="absolute inset-0 pointer-events-none"
                   style={{
-                    background:
-                      g.tone === "cream"
+                    background: g.imageUrl
+                      ? "linear-gradient(180deg, transparent 40%, rgba(20,15,10,.65) 100%)"
+                      : g.tone === "cream"
                         ? "linear-gradient(180deg, transparent 50%, rgba(250,246,240,.85) 100%)"
                         : "linear-gradient(180deg, transparent 40%, rgba(20,15,10,.6) 100%)",
                   }}
@@ -394,7 +413,20 @@ export function GalleryStrip() {
   );
 }
 
-export function Reviews() {
+export type ReviewItem = {
+  id: string;
+  name: string;
+  when: string;
+  text: string;
+  rating: number;
+};
+
+export function Reviews({ items }: { items?: ReviewItem[] } = {}) {
+  const list = items && items.length > 0 ? items : REVIEWS;
+  const avg =
+    items && items.length > 0
+      ? Math.round((items.reduce((s, r) => s + r.rating, 0) / items.length) * 100) / 100
+      : 4.96;
   return (
     <section className="bg-bg-1 pb-16 sm:pb-24 lg:pb-32">
       <div className="container-x pt-16 sm:pt-24 lg:pt-32">
@@ -411,20 +443,20 @@ export function Reviews() {
             </h2>
           </div>
           <div className="flex items-center gap-4">
-            <div className="serif text-[44px] sm:text-[56px] leading-none font-light">4.96</div>
+            <div className="serif text-[44px] sm:text-[56px] leading-none font-light">{avg}</div>
             <div>
               <div className="flex gap-0.5 text-gold-2">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <Icon.star key={i} style={{ width: 14, height: 14 }} />
                 ))}
               </div>
-              <div className="text-[12px] text-ink-mute mt-1">312 отзывов · Яндекс</div>
+              <div className="text-[12px] text-ink-mute mt-1">{list.length} отзывов</div>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {REVIEWS.map((r) => (
+          {list.map((r) => (
             <article
               key={r.id}
               className="bg-bg-0 p-7 rounded-lg border border-line"

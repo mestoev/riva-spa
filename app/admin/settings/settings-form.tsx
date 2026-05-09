@@ -73,6 +73,31 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
         </div>
       </Section>
 
+      <Section title="Карта на /contact">
+        <TextArea
+          label="Embed iframe URL (2GIS / Yandex Maps)"
+          name="mapEmbedUrl"
+          defaultValue={settings.mapEmbedUrl}
+        />
+        <p className="text-[12px] text-ink-mute mt-2 leading-snug">
+          На <a href="https://2gis.kz" target="_blank" rel="noopener" className="underline">2gis.kz</a>{" "}
+          или yandex.kz/maps найди свой адрес → «Поделиться» → «Встроить карту» → скопируй
+          атрибут <code>src</code> из iframe и вставь сюда. Пустое поле — карта не показывается.
+        </p>
+      </Section>
+
+      <Section title="FAQ на главной">
+        <TextArea
+          label='JSON массив [{"q": "вопрос", "a": "ответ"}, ...]'
+          name="faqJson"
+          defaultValue={JSON.stringify(settings.faq, null, 2) || "[]"}
+        />
+        <p className="text-[12px] text-ink-mute mt-2 leading-snug">
+          Например:{" "}
+          <code>{'[{"q": "Есть парковка?", "a": "Да, во дворе бесплатно"}]'}</code>
+        </p>
+      </Section>
+
       {state ? (
         state.ok ? (
           <div className="text-green-700 text-sm">✓ Сохранено.</div>

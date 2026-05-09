@@ -95,6 +95,18 @@ export function ContactClient({ settings }: { settings: SiteSettings }) {
               <div className="serif text-[26px] mt-3">{CONTACT.phone}</div>
               <div className="text-[12px] text-bg-0/60 mt-2">Ежедневно 09:00 — 23:00</div>
             </a>
+
+            {CONTACT.mapEmbedUrl ? (
+              <div className="rounded-lg overflow-hidden border border-line bg-bg-1 aspect-[16/12]">
+                <iframe
+                  src={CONTACT.mapEmbedUrl}
+                  className="w-full h-full"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Карта"
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

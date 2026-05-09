@@ -31,6 +31,7 @@ const masterSchema = z.object({
     .transform((v) => (v === "" ? null : v))
     .nullable(),
   specs: z.array(z.enum(SPECS)).min(1, "Выберите хотя бы одну специализацию"),
+  avatarUrl: z.string().max(500).optional().nullable(),
   active: z.coerce.boolean(),
   sortOrder: z.coerce.number().int().default(0),
 });
@@ -49,6 +50,7 @@ function fromFD(fd: FormData) {
     exp: String(fd.get("exp") ?? "").trim(),
     rating: fd.get("rating") === "" || fd.get("rating") === null ? "" : fd.get("rating"),
     specs,
+    avatarUrl: (fd.get("avatarUrl") as string)?.trim() || null,
     active: fd.get("active") === "on" || fd.get("active") === "true",
     sortOrder: fd.get("sortOrder") ?? 0,
   };
@@ -155,6 +157,7 @@ export async function updateMaster(
         exp: parsed.data.exp,
         rating: parsed.data.rating,
         specs: parsed.data.specs,
+        avatarUrl: parsed.data.avatarUrl,
         active: parsed.data.active,
         sortOrder: parsed.data.sortOrder,
       },
@@ -171,4 +174,29 @@ export async function toggleMasterActive(id: string, next: boolean) {
   await prisma.master.update({ where: { id }, data: { active: next } });
   revalidatePath("/admin/masters");
   revalidatePath("/booking");
+}
+
+export async function deleteMaster(
+  id: string,
+): Promise<{ ok: true } | { ok: false; reason: "has_bookings" | "not_found" | "error"; usedIn?: number }> {
+  if (id === "any") {
+    return { ok: false, reason: "error" };
+  }
+  const master = await prisma.master.findUnique({ where: { id } });
+  if (!master) return { ok: false, reason: "not_found" };
+
+  const usedIn = await prisma.booking.count({ where: { masterId: id } });
+  if (usedIn > 0) return { ok: false, reason: "has_bookings", usedIn };
+
+  try {
+    await prisma.masterBlackout.deleteMany({ where: { masterId: id } });
+    await prisma.slot.deleteMany({ where: { masterId: id } });
+    await prisma.master.delete({ where: { id } });
+  } catch (err) {
+    console.error("[deleteMaster]", err);
+    return { ok: false, reason: "error" };
+  }
+  revalidatePath("/admin/masters");
+  revalidatePath("/booking");
+  return { ok: true };
 }

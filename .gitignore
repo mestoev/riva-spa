@@ -8,3 +8,9 @@ out/
 .DS_Store
 .vercel
 prisma/migrations/dev.db*
+
+# User-uploaded images — saved on the server filesystem, not committed.
+public/uploads/
+
+# Server-side backups
+backups/
