@@ -12,12 +12,20 @@ export function LoginForm({ next, error }: { next?: string; error?: string }) {
     e.preventDefault();
     setBusy(true);
     setErr(null);
-    const res = await loginAction(pw, next ?? "/admin");
-    if (!res.ok) {
-      setErr(res.error);
+    try {
+      const res = await loginAction(pw, next ?? "/admin");
+      // On success the action redirects — `res` is never returned.
+      if (res && !res.ok) {
+        setErr(res.error);
+        setBusy(false);
+      }
+    } catch (e2) {
+      // Next.js wraps redirect() in a special thrown signal — bubble up.
+      const msg = e2 instanceof Error ? e2.message : "";
+      if (msg.includes("NEXT_REDIRECT")) throw e2;
+      setErr("Не удалось войти");
       setBusy(false);
     }
-    // On success the action redirects — no further code runs here.
   }
 
   return (

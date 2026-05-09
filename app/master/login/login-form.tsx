@@ -13,9 +13,16 @@ export function LoginForm({ next, error }: { next?: string; error?: string }) {
     e.preventDefault();
     setBusy(true);
     setErr(null);
-    const res = await masterLoginAction(username, password, next ?? "/master");
-    if (!res.ok) {
-      setErr(res.error);
+    try {
+      const res = await masterLoginAction(username, password, next ?? "/master");
+      if (res && !res.ok) {
+        setErr(res.error);
+        setBusy(false);
+      }
+    } catch (e2) {
+      const msg = e2 instanceof Error ? e2.message : "";
+      if (msg.includes("NEXT_REDIRECT")) throw e2;
+      setErr("Не удалось войти");
       setBusy(false);
     }
   }
