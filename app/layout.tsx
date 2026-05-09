@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import { Cormorant_Garamond, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Nav } from "@/components/nav";
@@ -59,6 +60,12 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const settings = await getSiteSettings();
+  // Hide the public Nav/Footer on admin and master cabinet routes —
+  // those have their own sidebar layouts. Middleware sets x-pathname.
+  const path = headers().get("x-pathname") ?? "";
+  const isInternal =
+    path.startsWith("/admin") || path.startsWith("/master");
+
   return (
     <html
       lang="ru"
@@ -66,11 +73,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     >
       <body>
         <CartProvider>
-          <Nav settings={settings} />
-          <main id="main">{children}</main>
-          <Footer settings={settings} />
-          <FloatingChat />
-          <CartDrawer />
+          {isInternal ? (
+            <>{children}</>
+          ) : (
+            <>
+              <Nav settings={settings} />
+              <main id="main">{children}</main>
+              <Footer settings={settings} />
+              <FloatingChat />
+              <CartDrawer />
+            </>
+          )}
         </CartProvider>
       </body>
     </html>
