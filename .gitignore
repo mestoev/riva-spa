@@ -10,10 +10,14 @@ out/
 prisma/migrations/dev.db*
 
 # User-uploaded images — saved on the server filesystem, not committed.
-public/uploads/
+# IMPORTANT: pattern is "public/uploads/*" (not "public/uploads/") so git
+# still descends into the directory and the !seed re-include below works.
+# Git won't look inside a directory that's been fully ignored, so a fully
+# excluded parent (e.g. "public/uploads/") makes "!public/uploads/seed/"
+# silently a no-op.
+public/uploads/*
 # …but seeded stock photos ARE committed so they reach the prod server via git.
 !public/uploads/seed/
-!public/uploads/seed/**
 
 # Server-side backups
 backups/
