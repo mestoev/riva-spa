@@ -34,10 +34,11 @@ export async function masterLoginAction(
   }
 
   const token = await signMasterSession(master.id);
+  const secure = process.env.COOKIE_SECURE === "1" || process.env.COOKIE_SECURE === "true";
   cookies().set(MASTER_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure,
     path: "/",
     maxAge: MASTER_TTL_SEC,
   });

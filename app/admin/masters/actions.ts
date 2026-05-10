@@ -95,7 +95,7 @@ export async function createMaster(_p: MasterFormState, fd: FormData): Promise<M
   cookies().set(FLASH_COOKIE, JSON.stringify({ username, password, name: parsed.data.name }), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.COOKIE_SECURE === "1" || process.env.COOKIE_SECURE === "true",
     path: "/admin",
     maxAge: 300, // 5 min
   });
@@ -133,7 +133,7 @@ export async function resetMasterPassword(masterId: string): Promise<{ ok: true;
   cookies().set(FLASH_COOKIE, JSON.stringify({ username, password, name: master.name }), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.COOKIE_SECURE === "1" || process.env.COOKIE_SECURE === "true",
     path: "/admin",
     maxAge: 300,
   });

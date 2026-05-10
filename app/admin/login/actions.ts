@@ -15,10 +15,15 @@ export async function loginAction(
   }
 
   const token = await signSession();
+  // Secure flag: only true if we're definitely on HTTPS. Browsers refuse
+  // Secure cookies over plain HTTP, which would silently break login on
+  // an http://ip:port deployment. Defaults to OFF; set COOKIE_SECURE=1
+  // in env once HTTPS is wired up.
+  const secure = process.env.COOKIE_SECURE === "1" || process.env.COOKIE_SECURE === "true";
   cookies().set(ADMIN_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure,
     path: "/",
     maxAge: ADMIN_TTL_SEC,
   });
