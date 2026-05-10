@@ -14,6 +14,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-images": "tsx scripts/seed-images.ts",
+    "db:seed-demo": "tsx scripts/seed-demo.ts",
     "db:studio": "prisma studio",
     "bot:client": "tsx bots/client/index.ts",
     "bot:admin": "tsx bots/admin/index.ts",
