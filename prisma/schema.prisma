@@ -59,6 +59,9 @@ model Master {
   username     String? @unique
   passwordHash String?
 
+  // % from each completed booking that goes to the master
+  commissionPercent Float @default(0)
+
   bookings  Booking[]
   slots     Slot[]
   blackouts MasterBlackout[]
@@ -344,6 +347,9 @@ model SiteSettings {
   hoursFriSun     String   @default("09:00 — 00:00")
   metaTitle       String   @default("RIVA POOL SPA — Тишина у воды")
   metaDescription String   @default("Бассейн на террасе, банный комплекс и СПА в приватной обстановке. Актобе.")
+  // Branding
+  logoUrl         String   @default("")
+  heroImageUrl    String   @default("")
   // Map embed iframe URL (from 2gis.kz / yandex.kz/maps "Поделиться → Код для вставки")
   mapEmbedUrl     String   @default("")
   // FAQ entries — JSON array [{q, a}]
@@ -352,6 +358,55 @@ model SiteSettings {
   updatedAt DateTime @updatedAt
 
   @@map("site_settings")
+}
+
+// ==========================================================
+// BEFORE / AFTER — фото-результаты процедур
+// ==========================================================
+
+model BeforeAfterPair {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  beforeUrl   String
+  afterUrl    String
+  // Optional binding to a specific service (for "results" tab on service pages later)
+  serviceId   String?
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("before_after_pairs")
+}
+
+// ==========================================================
+// EXPENSES — расходы (зарплаты, аренда, расходники, маркетинг и т.д.)
+// ==========================================================
+
+enum ExpenseCategory {
+  rent
+  salary
+  supplies
+  utilities
+  marketing
+  equipment
+  other
+}
+
+model Expense {
+  id          Int             @id @default(autoincrement())
+  date        DateTime        @db.Date
+  amount      Int             // in KZT
+  category    ExpenseCategory @default(other)
+  note        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@map("expenses")
 }
 
 // ==========================================================

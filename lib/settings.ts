@@ -21,6 +21,8 @@ export type SiteSettings = {
   hoursFriSun: string;
   metaTitle: string;
   metaDescription: string;
+  logoUrl: string;
+  heroImageUrl: string;
   mapEmbedUrl: string;
   faq: FAQItem[];
 };
@@ -61,6 +63,8 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     hoursFriSun: row.hoursFriSun,
     metaTitle: row.metaTitle,
     metaDescription: row.metaDescription,
+    logoUrl: row.logoUrl ?? "",
+    heroImageUrl: row.heroImageUrl ?? "",
     mapEmbedUrl: row.mapEmbedUrl ?? "",
     faq,
   };

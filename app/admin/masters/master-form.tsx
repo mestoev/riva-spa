@@ -85,12 +85,21 @@ export function MasterForm({ master }: { master?: Master }) {
         </div>
       </fieldset>
 
-      <Field
-        label="Порядок (sort)"
-        name="sortOrder"
-        type="number"
-        defaultValue={master?.sortOrder?.toString() ?? "0"}
-      />
+      <div className="grid sm:grid-cols-2 gap-5">
+        <Field
+          label="Комиссия %"
+          name="commissionPercent"
+          type="number"
+          defaultValue={master?.commissionPercent?.toString() ?? "0"}
+          placeholder="40"
+        />
+        <Field
+          label="Порядок (sort)"
+          name="sortOrder"
+          type="number"
+          defaultValue={master?.sortOrder?.toString() ?? "0"}
+        />
+      </div>
       <label className="flex items-center gap-3 mt-2">
         <input
           type="checkbox"

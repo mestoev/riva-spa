@@ -94,7 +94,17 @@ export function ServiceCard({
           isList ? "h-44 sm:h-auto sm:w-48" : "h-44 sm:h-52"
         }`}
       >
-        <CategoryArt cat={service.cat} />
+        {service.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={service.imageUrl}
+            alt={service.name}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <CategoryArt cat={service.cat} />
+        )}
 
         {service.tag ? (
           <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 text-ink

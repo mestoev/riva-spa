@@ -8,7 +8,16 @@ export function Footer({ settings }: { settings: SiteSettings }) {
       <div className="container-x">
         <div className="grid gap-10 md:gap-12 grid-cols-1 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr]">
           <div>
-            <Logo size={28} />
+            {settings.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={settings.logoUrl}
+                alt={settings.name}
+                className="h-12 w-auto object-contain brightness-0 invert"
+              />
+            ) : (
+              <Logo size={28} />
+            )}
             <p className="mt-6 text-[14px] leading-[1.6] text-bg-0/70 max-w-[320px]">
               {settings.tagline}. Бассейн на террасе и СПА в приватной обстановке.
             </p>

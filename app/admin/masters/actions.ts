@@ -32,6 +32,7 @@ const masterSchema = z.object({
     .nullable(),
   specs: z.array(z.enum(SPECS)).min(1, "Выберите хотя бы одну специализацию"),
   avatarUrl: z.string().max(500).optional().nullable(),
+  commissionPercent: z.coerce.number().min(0).max(100).default(0),
   active: z.coerce.boolean(),
   sortOrder: z.coerce.number().int().default(0),
 });
@@ -51,6 +52,7 @@ function fromFD(fd: FormData) {
     rating: fd.get("rating") === "" || fd.get("rating") === null ? "" : fd.get("rating"),
     specs,
     avatarUrl: (fd.get("avatarUrl") as string)?.trim() || null,
+    commissionPercent: fd.get("commissionPercent") ?? 0,
     active: fd.get("active") === "on" || fd.get("active") === "true",
     sortOrder: fd.get("sortOrder") ?? 0,
   };
@@ -158,6 +160,7 @@ export async function updateMaster(
         rating: parsed.data.rating,
         specs: parsed.data.specs,
         avatarUrl: parsed.data.avatarUrl,
+        commissionPercent: parsed.data.commissionPercent,
         active: parsed.data.active,
         sortOrder: parsed.data.sortOrder,
       },

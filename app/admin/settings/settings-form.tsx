@@ -3,6 +3,7 @@
 import { useFormState, useFormStatus } from "react-dom";
 import { saveSettings, type SettingsState } from "./actions";
 import type { SiteSettings } from "@/lib/settings";
+import { ImageUpload } from "@/components/image-upload";
 
 export function SettingsForm({ settings }: { settings: SiteSettings }) {
   const [state, action] = useFormState<SettingsState, FormData>(saveSettings, null);
@@ -10,10 +11,28 @@ export function SettingsForm({ settings }: { settings: SiteSettings }) {
   return (
     <form action={action} className="grid gap-6 max-w-[760px]">
       <Section title="Бренд">
-        <div className="grid sm:grid-cols-2 gap-4">
+        <div className="grid sm:grid-cols-2 gap-4 mb-4">
           <Field label="Название" name="name" defaultValue={settings.name} />
           <Field label="Слоган" name="tagline" defaultValue={settings.tagline} />
         </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <ImageUpload
+            name="logoUrl"
+            defaultValue={settings.logoUrl}
+            label="Логотип"
+            aspect="square"
+          />
+          <ImageUpload
+            name="heroImageUrl"
+            defaultValue={settings.heroImageUrl}
+            label="Фото для hero на главной"
+            aspect="wide"
+          />
+        </div>
+        <p className="text-[12px] text-ink-mute mt-3 leading-snug">
+          Логотип отображается в шапке и админ-панели. Hero — большое фоновое фото на главной странице.
+          Если оба пусты — используется текстовый логотип и анимация воды (как сейчас).
+        </p>
       </Section>
 
       <Section title="Адрес">

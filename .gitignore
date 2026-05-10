@@ -11,6 +11,9 @@ prisma/migrations/dev.db*
 
 # User-uploaded images — saved on the server filesystem, not committed.
 public/uploads/
+# …but seeded stock photos ARE committed so they reach the prod server via git.
+!public/uploads/seed/
+!public/uploads/seed/**
 
 # Server-side backups
 backups/

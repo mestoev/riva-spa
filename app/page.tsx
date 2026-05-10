@@ -81,7 +81,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero />
+      <Hero heroImageUrl={settings.heroImageUrl || undefined} />
       <ServicesPreview services={mapped} totalCount={services.length} />
       <PoolFeature />
       <GalleryStrip items={galleryItems} />

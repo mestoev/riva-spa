@@ -14,6 +14,7 @@ import Link from "next/link";
 import { Icon } from "./icons";
 import { ServiceCard } from "./service-card";
 import { REVIEWS, type Service } from "@/lib/data";
+import type { SiteSettings } from "@/lib/settings";
 
 export type GalleryItemLike = {
   id: string;
@@ -23,34 +24,121 @@ export type GalleryItemLike = {
   imageUrl?: string | null;
 };
 
-export function Hero() {
+/**
+ * Glass info card shown on the right of the hero when an admin photo is set.
+ * Designed to read on top of any photo: frosted glass + gold accents.
+ */
+function HeroInfoCard() {
+  return (
+    <div className="rise rise-d2 hidden lg:flex flex-col items-stretch gap-4 lg:max-w-[400px] lg:ml-auto">
+      {/* Live status pill */}
+      <div
+        className="self-start inline-flex items-center gap-3 px-4 py-2.5 rounded-full
+                   bg-white/15 backdrop-blur-md border border-white/25"
+      >
+        <span className="relative inline-flex w-2 h-2">
+          <span className="absolute inset-0 rounded-full bg-gold-1 animate-ping opacity-60" />
+          <span
+            className="relative inline-block w-2 h-2 rounded-full bg-gold-1"
+            style={{ boxShadow: "0 0 12px var(--gold-1)" }}
+          />
+        </span>
+        <span className="font-mono text-[11px] tracking-[0.22em] uppercase text-white">
+          live · бассейн открыт
+        </span>
+      </div>
+
+      {/* Day pass card */}
+      <div
+        className="rounded-2xl p-6 sm:p-7 backdrop-blur-md
+                   bg-white/10 border border-white/20"
+        style={{
+          boxShadow: "0 30px 60px -20px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.15)",
+        }}
+      >
+        <div className="font-mono text-[10px] tracking-[0.25em] uppercase text-white/70">
+          Дневной пропуск
+        </div>
+        <div className="serif text-[40px] sm:text-[44px] font-light leading-none mt-3">
+          18 000{" "}
+          <span className="text-[16px] text-white/70">₸ / 4 часа</span>
+        </div>
+        <div className="text-[13px] text-white/80 mt-2 leading-relaxed">
+          Бассейн на террасе, лежаки, чай и сезонные фрукты.
+        </div>
+        <Link
+          href="/booking"
+          className="mt-5 inline-flex w-full items-center justify-center gap-2
+                     px-5 py-3 rounded-full
+                     bg-white text-ink text-[14px] font-medium
+                     hover:bg-gold-1 hover:text-ink transition-colors"
+        >
+          Забронировать
+          <Icon.arrow style={{ width: 14, height: 14 }} />
+        </Link>
+      </div>
+
+      {/* Tiny rating + hours strip */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-xl p-4 bg-white/10 backdrop-blur-md border border-white/15">
+          <div className="text-[11px] font-mono tracking-[0.2em] uppercase text-white/65">
+            Рейтинг
+          </div>
+          <div className="serif text-[22px] mt-1 leading-none">
+            4.96 <span className="text-[12px] text-white/60">/ 5</span>
+          </div>
+          <div className="text-[11px] text-white/70 mt-1">по отзывам гостей</div>
+        </div>
+        <div className="rounded-xl p-4 bg-white/10 backdrop-blur-md border border-white/15">
+          <div className="text-[11px] font-mono tracking-[0.2em] uppercase text-white/65">
+            Сегодня
+          </div>
+          <div className="serif text-[22px] mt-1 leading-none">09 — 23</div>
+          <div className="text-[11px] text-white/70 mt-1">пн–чт, без перерыва</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function Hero({ heroImageUrl }: { heroImageUrl?: string } = {}) {
+  const hasPhoto = !!heroImageUrl;
   return (
     <section className="relative overflow-hidden">
-      {/* Background — animated water on >=sm, simple gradient on xs to save battery/perf */}
+      {/* Background — admin-uploaded photo if present, otherwise animated water */}
       <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 hidden sm:block water" />
-        <div
-          className="absolute inset-0 sm:hidden"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--pool-3) 0%, var(--pool-2) 50%, var(--wood-1) 100%)",
-          }}
-        />
+        {heroImageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={heroImageUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        ) : (
+          <>
+            <div className="absolute inset-0 hidden sm:block water" />
+            <div
+              className="absolute inset-0 sm:hidden"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--pool-3) 0%, var(--pool-2) 50%, var(--wood-1) 100%)",
+              }}
+            />
+          </>
+        )}
+        {/* Stronger overlay over real photo for text legibility; softer over animation */}
         <div
           className="absolute inset-0"
           style={{
-            background:
-              "linear-gradient(180deg, rgba(20,15,10,.15) 0%, rgba(20,15,10,.55) 100%)",
+            background: hasPhoto
+              ? "linear-gradient(180deg, rgba(20,15,10,.55) 0%, rgba(20,15,10,.45) 35%, rgba(20,15,10,.85) 100%)"
+              : "linear-gradient(180deg, rgba(20,15,10,.25) 0%, rgba(20,15,10,.65) 100%)",
           }}
         />
       </div>
 
       <div
-        className="container-x relative z-10 text-white
-                   grid items-center
-                   grid-cols-1 lg:grid-cols-[1.2fr_1fr]
-                   gap-12 lg:gap-16
-                   py-16 sm:py-24 lg:py-32"
+        className="container-x relative z-10 text-white grid items-center gap-12 lg:gap-16 py-16 sm:py-24 lg:py-32 grid-cols-1 lg:grid-cols-[1.2fr_1fr]"
         style={{ minHeight: "min(86vh, 760px)" }}
       >
         <div>
@@ -120,7 +208,10 @@ export function Hero() {
           </div>
         </div>
 
-        {/* Right column — pool card. Hidden on xs (saves vertical space, perf) */}
+        {/* Right column — info card over the real hero photo */}
+        {hasPhoto ? (
+          <HeroInfoCard />
+        ) : (
         <div
           className="rise rise-d2 relative hidden md:block"
           style={{ height: "min(70vh, 620px)" }}
@@ -189,6 +280,7 @@ export function Hero() {
             </div>
           </div>
         </div>
+        )}
       </div>
     </section>
   );
